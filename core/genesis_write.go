@@ -469,6 +469,16 @@ func HermezBlueberryGenesisBlock() *types.Genesis {
 	}
 }
 
+func HermezEtrogGenesisBlock() *types.Genesis {
+	return &types.Genesis{
+		Config:     params.HermezEtrogChainConfig,
+		Timestamp:  1703260380,
+		GasLimit:   0x0,
+		Difficulty: big.NewInt(0x0),
+		Alloc:      readPrealloc("allocs/hermez-etrog.json"),
+	}
+}
+
 func HermezCardonaGenesisBlock() *types.Genesis {
 	return &types.Genesis{
 		Config:     params.HermezCardonaChainConfig,
@@ -760,6 +770,8 @@ func GenesisBlockByChainName(chain string) *types.Genesis {
 		return HermezTestnetGenesisBlock()
 	case networkname.HermezBlueberryChainName:
 		return HermezBlueberryGenesisBlock()
+	case networkname.HermezEtrogChainName:
+		return HermezEtrogGenesisBlock()
 	case networkname.HermezCardonaChainName:
 		return HermezCardonaGenesisBlock()
 	case networkname.HermezCardonaInternalChainName:
