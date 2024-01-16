@@ -406,7 +406,7 @@ Loop:
 		}
 
 		/* SEQ: here probably something about GER from L1 if needed (Local ER can be done via EVM) */
-		blockGer, err := hermezDb.GetBlockGlobalExitRoot(blockNum)
+		blockGer, _, err := hermezDb.GetBlockGlobalExitRoot(blockNum)
 		if err != nil {
 			return err
 		}
