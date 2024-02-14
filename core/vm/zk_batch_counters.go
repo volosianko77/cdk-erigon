@@ -67,7 +67,8 @@ func (bcc *BatchCounterCollector) processBatchLevelData() error {
 	// reset the batch processing counters ready to calc the new values
 	bcc.l2DataCollector = NewCounterCollector(bcc.smtLevels)
 
-	batchL2DataSize := (totalRlpLength - len(bcc.transactions)*2) / 2
+	// todo: need to calc the l2BatchData length rather than straight up rlp length
+	batchL2DataSize := (totalRlpLength - len(bcc.transactions)*2) / 2 //todo: need to handle 9 bytes for each changeL2Block "virtual" transaction
 	l2Deduction := int(math.Ceil(float64(batchL2DataSize+1) / 136))
 
 	bcc.l2DataCollector.Deduct(S, 100)

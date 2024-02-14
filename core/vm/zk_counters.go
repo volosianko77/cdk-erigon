@@ -24,6 +24,8 @@ type Counter struct {
 	initialAmount int
 }
 
+func (c *Counter) Used() int { return c.used }
+
 type Counters map[CounterKey]*Counter
 
 type CounterKey string
