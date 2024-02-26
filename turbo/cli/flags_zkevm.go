@@ -7,7 +7,6 @@ import (
 	"github.com/ledgerwatch/erigon/cmd/utils"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
 	"github.com/ledgerwatch/erigon/zk/sequencer"
-	zkutils "github.com/ledgerwatch/erigon/zk/utils"
 	"github.com/urfave/cli/v2"
 	"strings"
 )
@@ -82,8 +81,6 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 		checkFlag(utils.EffectiveGasNetProfit.Name, cfg.Zk.EffectiveGasCfg.NetProfit)
 		checkFlag(utils.EffectiveGasBreakEvenFactor.Name, cfg.Zk.EffectiveGasCfg.BreakEvenFactor)
 		checkFlag(utils.EffectiveGasFinalDeviationPct.Name, cfg.Zk.EffectiveGasCfg.FinalDeviationPct)
-		checkFlag(utils.EffectiveGasEthTransferGasPrice.Name, cfg.Zk.EffectiveGasCfg.EthTransferGasPrice)
-		checkFlag(utils.EffectiveGasEthTransferL1GasPriceFactor.Name, cfg.Zk.EffectiveGasCfg.EthTransferL1GasPriceFactor)
 		checkFlag(utils.EffectiveGasL2GasPriceSuggesterFactor.Name, cfg.Zk.EffectiveGasCfg.L2GasPriceSuggesterFactor)
 	}
 	checkFlag(utils.L1ChainIdFlag.Name, cfg.Zk.L1ChainId)

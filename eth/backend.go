@@ -112,6 +112,7 @@ import (
 	"github.com/ledgerwatch/erigon/turbo/stages/headerdownload"
 	"github.com/ledgerwatch/erigon/zk/contracts"
 	"github.com/ledgerwatch/erigon/zk/datastream/client"
+	"github.com/ledgerwatch/erigon/zk/effective_gas"
 	"github.com/ledgerwatch/erigon/zk/hermez_db"
 	"github.com/ledgerwatch/erigon/zk/legacy_executor_verifier"
 	zkStages "github.com/ledgerwatch/erigon/zk/stages"
@@ -738,6 +739,9 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 				cfg.L1BlockRange,
 				cfg.L1QueryDelay,
 			)
+
+			gasPriceTracker := effective_gas.NewGasPriceTracker(cfg, 5*time.Second)
+			gasPriceTracker.StartTracking()
 
 			witnessGenerator := witness.NewGenerator(
 				config.Dirs,
