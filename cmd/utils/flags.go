@@ -884,6 +884,58 @@ var (
 		Usage: "Port for sentinel",
 		Value: 7777,
 	}
+
+	// zk effective gas price config
+	EffectiveGasEnabled = cli.BoolFlag{
+		Name:  "zkevm.effective-gas.enabled",
+		Usage: "Enable zk effective gas price percentage calculations",
+		Value: true,
+	}
+	EffectiveGasL1GasPriceFactor = cli.Float64Flag{
+		Name:  "zkevm.effective-gas.l1-gas-price-factor",
+		Usage: "The percentage of the L1 gas price that will be used as the L2 min gas price",
+		Value: 0,
+	}
+	EffectiveGasByteGasCost = cli.Uint64Flag{
+		Name:  "zkevm.effective-gas.byte-gas-cost",
+		Usage: "Is the gas cost per byte that is not 0",
+		Value: 0,
+	}
+	EffectiveGasZeroByteGasCost = cli.Uint64Flag{
+		Name:  "zkevm.effective-gas.zero-byte-gas-cost",
+		Usage: "Is the gas cost per byte that is 0",
+		Value: 0,
+	}
+	EffectiveGasNetProfit = cli.Float64Flag{
+		Name:  "zkevm.effective-gas.net-profit",
+		Usage: "Is the profit margin to apply to the calculated breakEvenGasPrice",
+		Value: 0,
+	}
+	EffectiveGasBreakEvenFactor = cli.Float64Flag{
+		Name:  "zkevm.effective-gas.break-even-factor",
+		Usage: "Is the factor to apply to the calculated breakevenGasPrice when comparing it with the gasPriceSigned of a tx",
+		Value: 0,
+	}
+	EffectiveGasFinalDeviationPct = cli.Uint64Flag{
+		Name:  "zkevm.effective-gas.final-deviation-pct",
+		Usage: "Is the max allowed deviation percentage BreakEvenGasPrice on re-calculation",
+		Value: 0,
+	}
+	EffectiveGasEthTransferGasPrice = cli.Uint64Flag{
+		Name:  "zkevm.effective-gas.eth-transfer-gas-price",
+		Usage: "Is the fixed gas price returned as effective gas price for txs tha are ETH transfers (0 means disabled)",
+		Value: 0,
+	}
+	EffectiveGasEthTransferL1GasPriceFactor = cli.Float64Flag{
+		Name:  "zkevm.effective-gas.eth-transfer-l1-gas-price-factor",
+		Usage: "Is the percentage of L1 gas price returned as effective gas price for txs tha are ETH transfers (0 means disabled)",
+		Value: 0,
+	}
+	EffectiveGasL2GasPriceSuggesterFactor = cli.Float64Flag{
+		Name:  "zkevm.effective-gas.l2-gas-price-suggester-factor",
+		Usage: "Is the factor to apply to L1 gas price to get the suggested L2 gas price",
+		Value: 0,
+	}
 )
 
 var MetricFlags = []cli.Flag{&MetricsEnabledFlag, &MetricsHTTPFlag, &MetricsPortFlag}

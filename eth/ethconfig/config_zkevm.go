@@ -1,6 +1,9 @@
 package ethconfig
 
-import "github.com/ledgerwatch/erigon-lib/common"
+import (
+	"github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon/zk/utils"
+)
 
 type Zk struct {
 	L2ChainId                   uint64
@@ -24,4 +27,6 @@ type Zk struct {
 	ExecutorStrictMode          bool
 
 	RebuildTreeAfter uint64
+
+	EffectiveGasCfg utils.EffectiveGasPriceCfg
 }

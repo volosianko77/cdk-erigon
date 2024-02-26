@@ -186,4 +186,16 @@ var DefaultFlags = []cli.Flag{
 	&utils.ExecutorStrictMode,
 	&utils.DataStreamHost,
 	&utils.DataStreamPort,
+
+	// effective gas
+	&utils.EffectiveGasEnabled,
+	&utils.EffectiveGasL1GasPriceFactor,
+	&utils.EffectiveGasByteGasCost,
+	&utils.EffectiveGasZeroByteGasCost,
+	&utils.EffectiveGasNetProfit,
+	&utils.EffectiveGasBreakEvenFactor,
+	&utils.EffectiveGasFinalDeviationPct,
+	&utils.EffectiveGasEthTransferGasPrice,
+	&utils.EffectiveGasEthTransferL1GasPriceFactor,
+	&utils.EffectiveGasL2GasPriceSuggesterFactor,
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/ledgerwatch/erigon/cmd/utils"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
 	"github.com/ledgerwatch/erigon/zk/sequencer"
+	zkutils "github.com/ledgerwatch/erigon/zk/utils"
 	"github.com/urfave/cli/v2"
 	"strings"
 )
@@ -46,6 +47,18 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 		SequencerAddress:            libcommon.HexToAddress(ctx.String(utils.SequencerAddressFlag.Name)),
 		ExecutorUrls:                strings.Split(ctx.String(utils.ExecutorUrls.Name), ","),
 		ExecutorStrictMode:          ctx.Bool(utils.ExecutorStrictMode.Name),
+		EffectiveGasCfg: zkutils.EffectiveGasPriceCfg{
+			Enabled:                     ctx.Bool(utils.EffectiveGasEnabled.Name),
+			L1GasPriceFactor:            ctx.Float64(utils.EffectiveGasL1GasPriceFactor.Name),
+			ByteGasCost:                 ctx.Uint64(utils.EffectiveGasByteGasCost.Name),
+			ZeroByteGasCost:             ctx.Uint64(utils.EffectiveGasZeroByteGasCost.Name),
+			NetProfit:                   ctx.Float64(utils.EffectiveGasNetProfit.Name),
+			BreakEvenFactor:             ctx.Float64(utils.EffectiveGasBreakEvenFactor.Name),
+			FinalDeviationPct:           ctx.Uint64(utils.EffectiveGasFinalDeviationPct.Name),
+			EthTransferGasPrice:         ctx.Uint64(utils.EffectiveGasEthTransferGasPrice.Name),
+			EthTransferL1GasPriceFactor: ctx.Float64(utils.EffectiveGasEthTransferL1GasPriceFactor.Name),
+			L2GasPriceSuggesterFactor:   ctx.Float64(utils.EffectiveGasL2GasPriceSuggesterFactor.Name),
+		},
 	}
 
 	checkFlag(utils.L2ChainIdFlag.Name, cfg.Zk.L2ChainId)
@@ -62,6 +75,16 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 			panic("You must set executor urls when running in executor strict mode (zkevm.executor-strict)")
 		}
 
+		checkFlag(utils.EffectiveGasEnabled.Name, cfg.Zk.EffectiveGasCfg.Enabled)
+		checkFlag(utils.EffectiveGasL1GasPriceFactor.Name, cfg.Zk.EffectiveGasCfg.L1GasPriceFactor)
+		checkFlag(utils.EffectiveGasByteGasCost.Name, cfg.Zk.EffectiveGasCfg.ByteGasCost)
+		checkFlag(utils.EffectiveGasZeroByteGasCost.Name, cfg.Zk.EffectiveGasCfg.ZeroByteGasCost)
+		checkFlag(utils.EffectiveGasNetProfit.Name, cfg.Zk.EffectiveGasCfg.NetProfit)
+		checkFlag(utils.EffectiveGasBreakEvenFactor.Name, cfg.Zk.EffectiveGasCfg.BreakEvenFactor)
+		checkFlag(utils.EffectiveGasFinalDeviationPct.Name, cfg.Zk.EffectiveGasCfg.FinalDeviationPct)
+		checkFlag(utils.EffectiveGasEthTransferGasPrice.Name, cfg.Zk.EffectiveGasCfg.EthTransferGasPrice)
+		checkFlag(utils.EffectiveGasEthTransferL1GasPriceFactor.Name, cfg.Zk.EffectiveGasCfg.EthTransferL1GasPriceFactor)
+		checkFlag(utils.EffectiveGasL2GasPriceSuggesterFactor.Name, cfg.Zk.EffectiveGasCfg.L2GasPriceSuggesterFactor)
 	}
 	checkFlag(utils.L1ChainIdFlag.Name, cfg.Zk.L1ChainId)
 	checkFlag(utils.L1RpcUrlFlag.Name, cfg.Zk.L1RpcUrl)
