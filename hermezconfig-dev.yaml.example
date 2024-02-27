@@ -20,9 +20,38 @@ zkevm.rpc-ratelimit: 250
 zkevm.data-stream-port: 6900
 zkevm.datastream-version: 2
 zkevm.data-stream-host: "localhost"
-zkevm.sequencer-address: "0xfa3b44587990f97ba8b6ba7e230a5f0e95d14b3d"
-zkevm.executor-strict: true
-zkevm.executor-urls: "51.210.116.237:50071"
+#zkevm.sequencer-address: "0xfa3b44587990f97ba8b6ba7e230a5f0e95d14b3d"
+#zkevm.executor-strict: true
+#zkevm.executor-urls: "51.210.116.237:50071"
+
+zkevm.effective-gas.enabled: true
+zkevm.effective-gas.l1-gas-price-factor: 0.25
+zkevm.effective-gas.byte-gas-cost: 16
+zkevm.effective-gas.zero-byte-gas-cost: 4
+zkevm.effective-gas.net-profit: 1
+zkevm.effective-gas.break-even-factor: 1.1
+zkevm.effective-gas.final-deviation-pct: 10
+zkevm.effective-gas.eth-transfer-gas-price: 0
+zkevm.effective-gas.eth-transfer-l1-gas-price-factor: 0
+zkevm.effective-gas.l2-gas-price-suggester-factor: 0.5
+
+# default price suggester
+zkevm.price-suggester.type: "default"
+zkevm.price-suggester.factor: 100
+zkevm.price-suggester.default-gas-price-wei: 10000000000
+
+# follower price suggester
+#zkevm.price-suggester.type: "follower"
+#zkevm.price-suggester.factor: 100
+#zkevm.price-suggester.max-gas-price-wei: 10000000000
+
+# lastnbatches price suggester
+#zkevm.price-suggester.type: "lastnbatches"
+#zkevm.price-suggester.factor: 100
+#zkevm.price-suggester.check-blocks: 5
+#zkevm.price-suggester.ignore-price: 0
+#zkevm.price-suggester.percentile: 80
+#zkevm.price-suggester.max-price: 10000000000
 
 externalcl: true
 http.api : ["eth","debug","net","trace","web3","erigon","txpool","zkevm"]

@@ -740,8 +740,8 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 				cfg.L1QueryDelay,
 			)
 
-			gasPriceTracker := effective_gas.NewGasPriceTracker(cfg, 5*time.Second)
-			gasPriceTracker.StartTracking()
+			priceStorage := effective_gas.NewMemoryPriceStorage()
+			go effective_gas.StartPriceSuggestor(context.Background(), *cfg, backend.chainDB, priceStorage)
 
 			witnessGenerator := witness.NewGenerator(
 				config.Dirs,

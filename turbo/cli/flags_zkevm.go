@@ -8,7 +8,9 @@ import (
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
 	"github.com/ledgerwatch/erigon/zk/sequencer"
 	"github.com/urfave/cli/v2"
+	"math/big"
 	"strings"
+	"time"
 )
 
 func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
@@ -23,6 +25,23 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 				panic(fmt.Sprintf("Flag not set: %s", flagName))
 			}
 		}
+	}
+
+	priceSuggesterUpdatePeriod, err := time.ParseDuration(ctx.String(utils.PriceSuggesterUpdatePeriod.Name))
+	if err != nil {
+		panic("could not parse price suggester update period")
+	}
+
+	var priceSuggesterMaxPrice *big.Int
+	readMaxPrice := ctx.Uint64(utils.PriceSuggesterMaxPrice.Name)
+	if readMaxPrice > 0 {
+		priceSuggesterMaxPrice = big.NewInt(0).SetUint64(readMaxPrice)
+	}
+
+	var priceSuggesterIgnorePrice *big.Int
+	readIgnorePrice := ctx.Uint64(utils.PriceSuggesterIgnorePrice.Name)
+	if readIgnorePrice > 0 {
+		priceSuggesterIgnorePrice = big.NewInt(0).SetUint64(readIgnorePrice)
 	}
 
 	cfg.Zk = &ethconfig.Zk{
@@ -46,7 +65,7 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 		SequencerAddress:            libcommon.HexToAddress(ctx.String(utils.SequencerAddressFlag.Name)),
 		ExecutorUrls:                strings.Split(ctx.String(utils.ExecutorUrls.Name), ","),
 		ExecutorStrictMode:          ctx.Bool(utils.ExecutorStrictMode.Name),
-		EffectiveGasCfg: zkutils.EffectiveGasPriceCfg{
+		EffectiveGas: ethconfig.EffectiveGasPriceCfg{
 			Enabled:                     ctx.Bool(utils.EffectiveGasEnabled.Name),
 			L1GasPriceFactor:            ctx.Float64(utils.EffectiveGasL1GasPriceFactor.Name),
 			ByteGasCost:                 ctx.Uint64(utils.EffectiveGasByteGasCost.Name),
@@ -57,6 +76,17 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 			EthTransferGasPrice:         ctx.Uint64(utils.EffectiveGasEthTransferGasPrice.Name),
 			EthTransferL1GasPriceFactor: ctx.Float64(utils.EffectiveGasEthTransferL1GasPriceFactor.Name),
 			L2GasPriceSuggesterFactor:   ctx.Float64(utils.EffectiveGasL2GasPriceSuggesterFactor.Name),
+		},
+		GasPriceEstimator: ethconfig.GasPriceEstimatorConfig{
+			Type:               ethconfig.EstimatorType(ctx.String(utils.PriceSuggesterType.Name)),
+			DefaultGasPriceWei: ctx.Uint64(utils.PriceSuggesterDefaultGasPriceWei.Name),
+			MaxGasPriceWei:     ctx.Uint64(utils.PriceSuggesterMaxGasPriceWei.Name),
+			MaxPrice:           priceSuggesterMaxPrice,
+			IgnorePrice:        priceSuggesterIgnorePrice,
+			CheckBlocks:        ctx.Int(utils.PriceSuggesterCheckBlocks.Name),
+			Percentile:         ctx.Int(utils.PriceSuggesterPercentile.Name),
+			UpdatePeriod:       priceSuggesterUpdatePeriod,
+			Factor:             ctx.Float64(utils.PriceSuggesterFactor.Name),
 		},
 	}
 
@@ -74,14 +104,30 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 			panic("You must set executor urls when running in executor strict mode (zkevm.executor-strict)")
 		}
 
-		checkFlag(utils.EffectiveGasEnabled.Name, cfg.Zk.EffectiveGasCfg.Enabled)
-		checkFlag(utils.EffectiveGasL1GasPriceFactor.Name, cfg.Zk.EffectiveGasCfg.L1GasPriceFactor)
-		checkFlag(utils.EffectiveGasByteGasCost.Name, cfg.Zk.EffectiveGasCfg.ByteGasCost)
-		checkFlag(utils.EffectiveGasZeroByteGasCost.Name, cfg.Zk.EffectiveGasCfg.ZeroByteGasCost)
-		checkFlag(utils.EffectiveGasNetProfit.Name, cfg.Zk.EffectiveGasCfg.NetProfit)
-		checkFlag(utils.EffectiveGasBreakEvenFactor.Name, cfg.Zk.EffectiveGasCfg.BreakEvenFactor)
-		checkFlag(utils.EffectiveGasFinalDeviationPct.Name, cfg.Zk.EffectiveGasCfg.FinalDeviationPct)
-		checkFlag(utils.EffectiveGasL2GasPriceSuggesterFactor.Name, cfg.Zk.EffectiveGasCfg.L2GasPriceSuggesterFactor)
+		checkFlag(utils.EffectiveGasEnabled.Name, cfg.Zk.EffectiveGas.Enabled)
+		checkFlag(utils.EffectiveGasL1GasPriceFactor.Name, cfg.Zk.EffectiveGas.L1GasPriceFactor)
+		checkFlag(utils.EffectiveGasByteGasCost.Name, cfg.Zk.EffectiveGas.ByteGasCost)
+		checkFlag(utils.EffectiveGasZeroByteGasCost.Name, cfg.Zk.EffectiveGas.ZeroByteGasCost)
+		checkFlag(utils.EffectiveGasNetProfit.Name, cfg.Zk.EffectiveGas.NetProfit)
+		checkFlag(utils.EffectiveGasBreakEvenFactor.Name, cfg.Zk.EffectiveGas.BreakEvenFactor)
+		checkFlag(utils.EffectiveGasFinalDeviationPct.Name, cfg.Zk.EffectiveGas.FinalDeviationPct)
+		checkFlag(utils.EffectiveGasL2GasPriceSuggesterFactor.Name, cfg.Zk.EffectiveGas.L2GasPriceSuggesterFactor)
+
+		switch cfg.Zk.GasPriceEstimator.Type {
+		case ethconfig.DefaultType:
+			checkFlag(utils.PriceSuggesterFactor.Name, cfg.Zk.GasPriceEstimator.Factor)
+			checkFlag(utils.PriceSuggesterDefaultGasPriceWei.Name, cfg.Zk.GasPriceEstimator.DefaultGasPriceWei)
+		case ethconfig.FollowerType:
+			checkFlag(utils.PriceSuggesterFactor.Name, cfg.Zk.GasPriceEstimator.Factor)
+			checkFlag(utils.PriceSuggesterDefaultGasPriceWei.Name, cfg.Zk.GasPriceEstimator.DefaultGasPriceWei)
+			checkFlag(utils.PriceSuggesterMaxGasPriceWei.Name, cfg.Zk.GasPriceEstimator.MaxGasPriceWei)
+		case ethconfig.LastNBatchesType:
+			checkFlag(utils.PriceSuggesterFactor.Name, cfg.Zk.GasPriceEstimator.Factor)
+			checkFlag(utils.PriceSuggesterCheckBlocks.Name, cfg.Zk.GasPriceEstimator.CheckBlocks)
+			checkFlag(utils.PriceSuggesterIgnorePrice.Name, cfg.Zk.GasPriceEstimator.IgnorePrice)
+			checkFlag(utils.PriceSuggesterPercentile.Name, cfg.Zk.GasPriceEstimator.Percentile)
+			checkFlag(utils.PriceSuggesterMaxPrice.Name, cfg.Zk.GasPriceEstimator.MaxPrice)
+		}
 	}
 	checkFlag(utils.L1ChainIdFlag.Name, cfg.Zk.L1ChainId)
 	checkFlag(utils.L1RpcUrlFlag.Name, cfg.Zk.L1RpcUrl)

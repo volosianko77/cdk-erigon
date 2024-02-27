@@ -936,6 +936,53 @@ var (
 		Usage: "Is the factor to apply to L1 gas price to get the suggested L2 gas price",
 		Value: 0,
 	}
+
+	// zk price suggester config
+	PriceSuggesterType = cli.StringFlag{
+		Name:  "zkevm.price-suggester.type",
+		Usage: "The type of price suggestor to use (default/lastnbatches/follower)",
+		Value: "default",
+	}
+	PriceSuggesterDefaultGasPriceWei = cli.Uint64Flag{
+		Name:  "zkevm.price-suggester.default-gas-price-wei",
+		Usage: "Is used to set the gas price to be used by the default gas pricer or as minimum gas price by the follower gas pricer",
+		Value: 0,
+	}
+	PriceSuggesterMaxGasPriceWei = cli.Uint64Flag{
+		Name:  "zkevm.price-suggester.max-gas-price-wei",
+		Usage: "Is used to limit the gas price returned by the follower gas pricer to a maximum value. It is ignored if 0",
+		Value: 0,
+	}
+	PriceSuggesterMaxPrice = cli.Uint64Flag{
+		Name:  "zkevm.price-suggester.max-price",
+		Usage: "Maximum price when calculating price suggestions",
+		Value: 0,
+	}
+	PriceSuggesterIgnorePrice = cli.Uint64Flag{
+		Name:  "zkevm.price-suggester.ignore-price",
+		Usage: "When using the follower type this defines the price at which to ignore tips from",
+		Value: 0,
+	}
+	PriceSuggesterCheckBlocks = cli.IntFlag{
+		Name:  "zkevm.price-suggester.check-blocks",
+		Usage: "How many blocks to check when using the lastnbatches type",
+		Value: 5,
+	}
+	PriceSuggesterPercentile = cli.IntFlag{
+		Name:  "zkevm.price-suggester.percentile",
+		Usage: "When using the lastnbatches type this controls which percentile is taken from the sorted list of prices to get the final price",
+		Value: 100,
+	}
+	PriceSuggesterUpdatePeriod = cli.StringFlag{
+		Name:  "zkevm.price-suggester.update-period",
+		Usage: "How often to update the gas prices from the decider",
+		Value: "2s",
+	}
+	PriceSuggesterFactor = cli.Float64Flag{
+		Name:  "zkevm.price-suggester.factor",
+		Usage: "The factor applied to the l1 gas price to get the l2 gas price",
+		Value: 100,
+	}
 )
 
 var MetricFlags = []cli.Flag{&MetricsEnabledFlag, &MetricsHTTPFlag, &MetricsPortFlag}

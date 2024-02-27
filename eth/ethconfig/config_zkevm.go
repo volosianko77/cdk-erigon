@@ -2,6 +2,8 @@ package ethconfig
 
 import (
 	"github.com/ledgerwatch/erigon-lib/common"
+	"math/big"
+	"time"
 )
 
 type Zk struct {
@@ -27,7 +29,8 @@ type Zk struct {
 
 	RebuildTreeAfter uint64
 
-	EffectiveGasCfg EffectiveGasPriceCfg
+	EffectiveGas      EffectiveGasPriceCfg
+	GasPriceEstimator GasPriceEstimatorConfig
 }
 
 // EffectiveGasPriceCfg contains the configuration properties for the effective gas price
@@ -64,4 +67,32 @@ type EffectiveGasPriceCfg struct {
 	// L2GasPriceSuggesterFactor is the factor to apply to L1 gas price to get the suggested L2 gas price used in the
 	// calculations when the effective gas price is disabled (testing/metrics purposes)
 	L2GasPriceSuggesterFactor float64
+}
+
+// EstimatorType different gas estimator types.
+type EstimatorType string
+
+const (
+	// DefaultType default gas price from config is set.
+	DefaultType EstimatorType = "default"
+	// LastNBatchesType calculate average gas tip from last n batches.
+	LastNBatchesType EstimatorType = "lastnbatches"
+	// FollowerType calculate the gas price basing on the L1 gasPrice.
+	FollowerType EstimatorType = "follower"
+)
+
+type GasPriceEstimatorConfig struct {
+	Type EstimatorType
+
+	// DefaultGasPriceWei is used to set the gas price to be used by the default gas pricer or as minimim gas price by the follower gas pricer.
+	DefaultGasPriceWei uint64
+	// MaxGasPriceWei is used to limit the gas price returned by the follower gas pricer to a maximum value. It is ignored if 0.
+	MaxGasPriceWei uint64
+	MaxPrice       *big.Int
+	IgnorePrice    *big.Int
+	CheckBlocks    int
+	Percentile     int
+	UpdatePeriod   time.Duration
+
+	Factor float64
 }

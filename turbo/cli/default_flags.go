@@ -198,4 +198,15 @@ var DefaultFlags = []cli.Flag{
 	&utils.EffectiveGasEthTransferGasPrice,
 	&utils.EffectiveGasEthTransferL1GasPriceFactor,
 	&utils.EffectiveGasL2GasPriceSuggesterFactor,
+
+	// price checker
+	&utils.PriceSuggesterType,
+	&utils.PriceSuggesterDefaultGasPriceWei,
+	&utils.PriceSuggesterMaxGasPriceWei,
+	&utils.PriceSuggesterMaxPrice,
+	&utils.PriceSuggesterIgnorePrice,
+	&utils.PriceSuggesterCheckBlocks,
+	&utils.PriceSuggesterPercentile,
+	&utils.PriceSuggesterUpdatePeriod,
+	&utils.PriceSuggesterFactor,
 }
