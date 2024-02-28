@@ -791,6 +791,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 				backend.txPool2,
 				backend.txPool2DB,
 				verifier,
+				priceStorage,
 			)
 
 			backend.syncUnwindOrder = zkStages.ZkSequencerUnwindOrder

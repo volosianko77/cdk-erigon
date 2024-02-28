@@ -16,6 +16,7 @@ import (
 	"github.com/ledgerwatch/erigon/turbo/shards"
 	"github.com/ledgerwatch/erigon/turbo/snapshotsync"
 	"github.com/ledgerwatch/erigon/zk/datastream/client"
+	"github.com/ledgerwatch/erigon/zk/effective_gas"
 	"github.com/ledgerwatch/erigon/zk/legacy_executor_verifier"
 	zkStages "github.com/ledgerwatch/erigon/zk/stages"
 	"github.com/ledgerwatch/erigon/zk/syncer"
@@ -98,6 +99,7 @@ func NewSequencerZkStages(ctx context.Context,
 	txPool *txpool.TxPool,
 	txPoolDb kv.RwDB,
 	verifier *legacy_executor_verifier.LegacyExecutorVerifier,
+	priceStorage effective_gas.PriceStorage,
 ) []*stagedsync.Stage {
 	dirs := cfg.Dirs
 	blockReader := snapshotsync.NewBlockReaderWithSnapshots(snapshots, cfg.TransactionsV3)
@@ -131,6 +133,7 @@ func NewSequencerZkStages(ctx context.Context,
 			cfg.Zk,
 			txPool,
 			txPoolDb,
+			priceStorage,
 		),
 		stagedsync.StageHashStateCfg(db, dirs, cfg.HistoryV3, agg),
 		zkStages.StageZkInterHashesCfg(db, true, true, false, dirs.Tmp, blockReader, controlServer.Hd, cfg.HistoryV3, agg, cfg.Zk),

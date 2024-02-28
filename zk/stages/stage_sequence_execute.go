@@ -44,6 +44,7 @@ import (
 	"github.com/ledgerwatch/erigon/smt/pkg/blockinfo"
 	"github.com/ledgerwatch/erigon/turbo/services"
 	"github.com/ledgerwatch/erigon/turbo/shards"
+	"github.com/ledgerwatch/erigon/zk/effective_gas"
 	"github.com/ledgerwatch/erigon/zk/erigon_db"
 	"github.com/ledgerwatch/erigon/zk/hermez_db"
 	"github.com/ledgerwatch/erigon/zk/tx"
@@ -74,7 +75,13 @@ var (
 
 	noop            = state.NewNoopWriter()
 	blockDifficulty = new(big.Int).SetUint64(0)
+
+	ErrEffectiveGasPriceReprocess = errors.New("effective gas price requires reprocessing the transaction")
 )
+
+type PriceGetter interface {
+	GetPrices() (uint64, uint64)
+}
 
 type HasChangeSetWriter interface {
 	ChangeSetWriter() *state.ChangeSetWriter
@@ -104,6 +111,9 @@ type SequenceBlockCfg struct {
 
 	txPool   *txpool.TxPool
 	txPoolDb kv.RwDB
+
+	effectiveGasPrice effective_gas.EffectiveGasPrice
+	priceStorage      PriceGetter
 }
 
 func StageSequenceBlocksCfg(
@@ -128,27 +138,31 @@ func StageSequenceBlocksCfg(
 
 	txPool *txpool.TxPool,
 	txPoolDb kv.RwDB,
+	priceStorage PriceGetter,
+	effectiveGasPrice effective_gas.EffectiveGasPrice,
 ) SequenceBlockCfg {
 	return SequenceBlockCfg{
-		db:            db,
-		prune:         pm,
-		batchSize:     batchSize,
-		changeSetHook: changeSetHook,
-		chainConfig:   chainConfig,
-		engine:        engine,
-		zkVmConfig:    vmConfig,
-		dirs:          dirs,
-		accumulator:   accumulator,
-		stateStream:   stateStream,
-		badBlockHalt:  badBlockHalt,
-		blockReader:   blockReader,
-		genesis:       genesis,
-		historyV3:     historyV3,
-		syncCfg:       syncCfg,
-		agg:           agg,
-		zk:            zk,
-		txPool:        txPool,
-		txPoolDb:      txPoolDb,
+		db:                db,
+		prune:             pm,
+		batchSize:         batchSize,
+		changeSetHook:     changeSetHook,
+		chainConfig:       chainConfig,
+		engine:            engine,
+		zkVmConfig:        vmConfig,
+		dirs:              dirs,
+		accumulator:       accumulator,
+		stateStream:       stateStream,
+		badBlockHalt:      badBlockHalt,
+		blockReader:       blockReader,
+		genesis:           genesis,
+		historyV3:         historyV3,
+		syncCfg:           syncCfg,
+		agg:               agg,
+		zk:                zk,
+		txPool:            txPool,
+		txPoolDb:          txPoolDb,
+		priceStorage:      priceStorage,
+		effectiveGasPrice: effectiveGasPrice,
 	}
 }
 
@@ -268,7 +282,7 @@ LOOP:
 
 			for _, transaction := range transactions {
 				snap := ibs.Snapshot()
-				receipt, overflow, err := attemptAddTransaction(tx, cfg, batchCounters, header, parentBlock.Header(), transaction, ibs, hermezDb)
+				receipt, overflow, err := attemptAddTransaction(tx, logPrefix, cfg, batchCounters, header, parentBlock.Header(), transaction, ibs, hermezDb)
 				if err != nil {
 					ibs.RevertToSnapshot(snap)
 					return err
@@ -666,7 +680,8 @@ func extractTransactionsFromSlot(slot types2.TxsRlp) ([]types.Transaction, error
 }
 
 func attemptAddTransaction(
-	tx kv.RwTx,
+	dbTx kv.RwTx,
+	logPrefix string,
 	cfg SequenceBlockCfg,
 	batchCounters *vm.BatchCounterCollector,
 	header *types.Header,
@@ -685,12 +700,10 @@ func attemptAddTransaction(
 	}
 
 	gasPool := new(core.GasPool).AddGas(transactionGasLimit)
-	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
+	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(dbTx, hash, number) }
 
 	// set the counter collector on the config so that we can gather info during the execution
 	cfg.zkVmConfig.CounterCollector = txCounters.ExecutionCounters()
-
-	// TODO: possibly inject zero tracer here!
 
 	ibs.Prepare(transaction.Hash(), common.Hash{}, 0)
 
@@ -708,9 +721,72 @@ func attemptAddTransaction(
 		cfg.zkVmConfig.Config,
 		parentHeader.ExcessDataGas,
 		zktypes.EFFECTIVE_GAS_PRICE_PERCENTAGE_MAXIMUM)
-
 	if err != nil {
 		return nil, false, err
+	}
+
+	// get the prices ready to calculate the effective gas price for this tx
+	egpEnabled := cfg.effectiveGasPrice.IsEnabled()
+	l1GasPrice, l2GasPrice := cfg.priceStorage.GetPrices()
+	txGasPrice, txL2GasPrice := cfg.effectiveGasPrice.GetTxAndL2GasPrice(transaction.GetPrice().ToBig(), l1GasPrice, l2GasPrice)
+	// here we don't want the efficiency percentage tagging on so just send a low forkid where this wouldn't be applied
+	l2TxRawData, err := tx.TransactionToL2Data(transaction, 0, 0)
+	if err != nil {
+		return nil, false, err
+	}
+	effectiveGasPrice, err := cfg.effectiveGasPrice.CalculateEffectiveGasPrice(l2TxRawData, txGasPrice, receipt.GasUsed, l1GasPrice, txL2GasPrice)
+	if err != nil {
+		return nil, false, err
+	}
+	// final execution controls if we will check the effective gas price again once we've processed the tx
+	finalExecution := false
+	// if the effective gas price is above the tx gas price then we process using the tx gas price
+	if effectiveGasPrice.Cmp(txGasPrice) >= 0 {
+		loss := new(big.Int).Sub(effectiveGasPrice, txGasPrice)
+		// If loss > 0 the warning message indicating we lost fee for thix tx
+		if loss.Cmp(new(big.Int).SetUint64(0)) == 1 {
+			log.Warn(fmt.Sprintf("[%s]egp-loss", logPrefix), "gasPrice", txGasPrice, "effectiveGasPrice1", effectiveGasPrice, "loss", loss, "tx", transaction.Hash())
+		}
+		effectiveGasPrice = txGasPrice
+		finalExecution = true
+	}
+
+	egpPercentage, err := cfg.effectiveGasPrice.CalculateEffectiveGasPricePercentage(txGasPrice, effectiveGasPrice)
+	if err != nil {
+		if egpEnabled {
+			return nil, false, err
+		} else {
+			log.Warn(fmt.Sprintf("[%s] effective price is disabled but the calculation failed", logPrefix), "err", err)
+		}
+	}
+	if !cfg.effectiveGasPrice.IsEnabled() {
+		egpPercentage = tx.MaxEffectivePercentage
+	}
+
+	if !finalExecution {
+		txGasPrice, txL2GasPrice = cfg.effectiveGasPrice.GetTxAndL2GasPrice(txGasPrice, l1GasPrice, l2GasPrice)
+		newEffectiveGasPrice, err := cfg.effectiveGasPrice.CalculateEffectiveGasPrice(l2TxRawData, txGasPrice, receipt.GasUsed, l1GasPrice, l2GasPrice)
+		if err != nil {
+			if egpEnabled {
+				log.Error(fmt.Sprintf("[%s] failed to calculate effective gas price with new gasUsed for tx", logPrefix), "err", err, "hash", transaction.Hash())
+				return nil, false, err
+			} else {
+				log.Warn(fmt.Sprintf("[%s] effectiveGasPrice disabled but failed to calculate effective gas price with new gasUsed for tx", logPrefix), "err", err, "hash", transaction.Hash())
+			}
+		} else {
+			compareErr := compareTxEffectiveGasPrice(
+				logPrefix,
+				cfg,
+				transaction,
+				txGasPrice,
+				l1GasPrice,
+				l2GasPrice,
+				effectiveGasPrice,
+				newEffectiveGasPrice,
+				false, //todo: we need to get this from the EVM somehow
+				false,
+			)
+		}
 	}
 
 	// we need to keep hold of the effective percentage used
@@ -728,6 +804,54 @@ func attemptAddTransaction(
 	overflow = batchCounters.CheckForOverflow()
 
 	return receipt, overflow, err
+}
+
+// compareTxEffectiveGasPrice compares newEffectiveGasPrice with tx.EffectiveGasPrice.
+// It returns ErrEffectiveGasPriceReprocess if the tx needs to be reprocessed with
+// the tx.EffectiveGasPrice updated, otherwise it returns nil
+func compareTxEffectiveGasPrice(
+	logPrefix string,
+	cfg SequenceBlockCfg,
+	transaction types.Transaction,
+	txGasPrice *big.Int,
+	l1GasPrice uint64,
+	l2GasPrice uint64,
+	oldEffectiveGasPrice *big.Int,
+	newEffectiveGasPrice *big.Int,
+	hasGasPriceOC bool,
+	hasBalanceOC bool,
+) error {
+	// Get the tx gas price we will use in the egp calculation. If egp is disabled we will use a "simulated" tx gas price
+	txGasPrice, _ = cfg.effectiveGasPrice.GetTxAndL2GasPrice(txGasPrice, l1GasPrice, l2GasPrice)
+
+	// Compute the absolute difference between tx.EffectiveGasPrice - newEffectiveGasPrice
+	diff := new(big.Int).Abs(new(big.Int).Sub(oldEffectiveGasPrice, newEffectiveGasPrice))
+	// Compute max deviation allowed of newEffectiveGasPrice
+	maxDeviation := new(big.Int).Div(new(big.Int).Mul(oldEffectiveGasPrice, new(big.Int).SetUint64(cfg.effectiveGasPrice.GetFinalDeviation())), big.NewInt(100)) //nolint:gomnd
+
+	// if (diff > finalDeviation)
+	if diff.Cmp(maxDeviation) == 1 {
+		// if newEfectiveGasPrice < txGasPrice
+		if newEffectiveGasPrice.Cmp(txGasPrice) == -1 {
+			if hasGasPriceOC || hasBalanceOC {
+				oldEffectiveGasPrice.Set(txGasPrice)
+			} else {
+				oldEffectiveGasPrice.Set(newEffectiveGasPrice)
+			}
+		} else {
+			oldEffectiveGasPrice.Set(txGasPrice)
+
+			loss := new(big.Int).Sub(newEffectiveGasPrice, txGasPrice)
+			// If loss > 0 the warning message indicating we lost fee for thix tx
+			if loss.Cmp(new(big.Int).SetUint64(0)) == 1 {
+				log.Warn(fmt.Sprintf("[%s] egp-loss", logPrefix), "gasPrice", txGasPrice, "EffectiveGasPrice2", newEffectiveGasPrice, "loss", loss, "tx", transaction.Hash())
+			}
+		}
+
+		return ErrEffectiveGasPriceReprocess
+	} // else (diff <= finalDeviation) it is ok, no reprocess of the tx is needed
+
+	return nil
 }
 
 // will be called at the start of every new block created within a batch to figure out if there is a new GER
