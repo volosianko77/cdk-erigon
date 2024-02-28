@@ -26,12 +26,6 @@ import (
 	"github.com/ledgerwatch/log/v3"
 )
 
-const (
-	preForkId7BlockGasLimit = 30_000_000
-	forkId7BlockGasLimit    = 18446744073709551615 // 0xffffffffffffffff
-	forkId8BlockGasLimit    = 1125899906842624     // 0x4000000000000
-)
-
 type ErigonDb interface {
 	WriteHeader(batchNo *big.Int, stateRoot, txHash, parentHash common.Hash, coinbase common.Address, ts, gasLimit uint64) (*ethTypes.Header, error)
 	WriteBody(batchNo *big.Int, headerHash common.Hash, txs []ethTypes.Transaction) error
@@ -533,17 +527,6 @@ func PruneBatchesStage(s *stagedsync.PruneState, tx kv.RwTx, cfg BatchesCfg, ctx
 	return nil
 }
 
-func getGasLimit(forkId uint16) uint64 {
-	switch forkId {
-	case 8:
-		return forkId8BlockGasLimit
-	case 7:
-		return forkId7BlockGasLimit
-	default:
-		return preForkId7BlockGasLimit
-	}
-}
-
 // writeL2Block writes L2Block to ErigonDb and HermezDb
 // writes header, body, forkId and blockBatch
 func writeL2Block(eriDb ErigonDb, hermezDb HermezDb, l2Block *types.FullL2Block) error {
@@ -567,7 +550,7 @@ func writeL2Block(eriDb ErigonDb, hermezDb HermezDb, l2Block *types.FullL2Block)
 	txCollection := ethTypes.Transactions(txs)
 	txHash := ethTypes.DeriveSha(txCollection)
 
-	gasLimit := getGasLimit(l2Block.ForkId)
+	gasLimit := stagedsync.GetGasLimit(l2Block.ForkId)
 
 	h, err := eriDb.WriteHeader(bn, l2Block.StateRoot, txHash, l2Block.ParentHash, l2Block.Coinbase, uint64(l2Block.Timestamp), gasLimit)
 	if err != nil {

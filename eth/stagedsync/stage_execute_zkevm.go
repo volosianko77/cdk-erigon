@@ -34,6 +34,12 @@ import (
 	"github.com/ledgerwatch/erigon/zk/utils"
 )
 
+const (
+	preForkId7BlockGasLimit = 30_000_000
+	forkId7BlockGasLimit    = 18446744073709551615 // 0xffffffffffffffff
+	forkId8BlockGasLimit    = 1125899906842624     // 0x4000000000000
+)
+
 func SpawnExecuteBlocksStageZk(s *StageState, u Unwinder, tx kv.RwTx, toBlock uint64, ctx context.Context, cfg ExecuteBlockCfg, initialCycle bool, quiet bool) (err error) {
 	if cfg.historyV3 {
 		if err = ExecBlockV3(s, u, tx, toBlock, ctx, cfg, initialCycle); err != nil {
@@ -166,7 +172,14 @@ Loop:
 		if err = updateZkEVMBlockCfg(&cfg, hermezDb, logPrefix); err != nil {
 			return err
 		}
-		if err = executeBlockZk(block, &prevBlockHash, header, tx, batch, cfg, *cfg.vmConfig, writeChangeSets, writeReceipts, writeCallTraces, initialCycle, stateStream, hermezDb); err != nil {
+
+		//[hack]
+		blockGasLimit := header.GasLimit
+		if cfg.chainConfig.IsForkID7Etrog(block.NumberU64()) {
+			blockGasLimit = forkId7BlockGasLimit
+		}
+
+		if err = executeBlockZk(block, &prevBlockHash, header, tx, batch, cfg, *cfg.vmConfig, writeChangeSets, writeReceipts, writeCallTraces, initialCycle, stateStream, hermezDb, blockGasLimit); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				log.Warn(fmt.Sprintf("[%s] Execution failed", logPrefix), "block", blockNum, "hash", block.Hash().String(), "err", err)
 				if cfg.hd != nil {
@@ -334,6 +347,14 @@ func postExecuteCommitValues(
 	return nil
 }
 
+func GetGasLimit(forkId uint16) uint64 {
+	if forkId < 7 {
+		return forkId8BlockGasLimit
+	}
+
+	return preForkId7BlockGasLimit
+}
+
 func executeBlockZk(
 	block *types.Block,
 	prevBlockHash *common.Hash,
@@ -348,6 +369,7 @@ func executeBlockZk(
 	initialCycle bool,
 	stateStream bool,
 	roHermezDb state.ReadOnlyHermezDb,
+	blockGasLimit uint64,
 ) error {
 	blockNum := block.NumberU64()
 
@@ -376,7 +398,7 @@ func executeBlockZk(
 	var execRs *core.EphemeralExecResult
 	getHashFn := core.GetHashFn(block.Header(), getHeader)
 
-	execRs, err = core.ExecuteBlockEphemerallyZk(cfg.chainConfig, &vmConfig, getHashFn, cfg.engine, prevBlockHash, block, stateReader, stateWriter, ChainReaderImpl{config: cfg.chainConfig, tx: tx, blockReader: cfg.blockReader}, getTracer, tx, roHermezDb)
+	execRs, err = core.ExecuteBlockEphemerallyZk(cfg.chainConfig, &vmConfig, getHashFn, cfg.engine, prevBlockHash, block, stateReader, stateWriter, ChainReaderImpl{config: cfg.chainConfig, tx: tx, blockReader: cfg.blockReader}, getTracer, tx, roHermezDb, blockGasLimit)
 
 	if err != nil {
 		return err

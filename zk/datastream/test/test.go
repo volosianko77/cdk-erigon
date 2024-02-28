@@ -12,11 +12,12 @@ import (
 )
 
 const dataStreamUrl = "stream.zkevm-rpc.com:6900"
+const cardonaDatastreamUrl = "datastream.cardona.zkevm-rpc.com:6900"
 
 // This code downloads headers and blocks from a datastream server.
 func main() {
 	// Create client
-	c := client.NewClient(dataStreamUrl, 0)
+	c := client.NewClient(cardonaDatastreamUrl, 0)
 
 	// Start client (connect to the server)
 	defer c.Stop()
@@ -25,10 +26,10 @@ func main() {
 	}
 
 	// create bookmark
-	bookmark := types.NewL2BlockBookmark(0)
+	bookmark := types.NewL2BlockBookmark(59093)
 
 	// Read all entries from server
-	blocksRead, _, _, entriesReadAmount, err := c.ReadEntries(bookmark, 1000000)
+	blocksRead, _, _, entriesReadAmount, err := c.ReadEntries(bookmark, 100)
 	if err != nil {
 		panic(err)
 	}

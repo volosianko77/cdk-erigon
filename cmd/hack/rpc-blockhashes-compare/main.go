@@ -2,69 +2,24 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
 
-	"io"
-
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon/ethclient"
 	"gopkg.in/yaml.v2"
 )
-
-type Result struct {
-	Hash string `json:"hash"`
-}
-
-type HTTPResponse struct {
-	Result Result `json:"result"`
-	Error  string `json:"error"`
-}
-
-type RequestData struct {
-	Method  string   `json:"method"`
-	Params  []string `json:"params"`
-	ID      int      `json:"id"`
-	Jsonrpc string   `json:"jsonrpc"`
-}
-
-type AccountDump struct {
-	Balance  string
-	Nonce    uint64
-	Storage  map[string]string
-	Codehash libcommon.Hash
-}
 
 func main() {
 	rpcConfig, err := getConf()
 	if err != nil {
 		panic(fmt.Sprintf("error RPGCOnfig: %s", err))
 	}
-	jsonFile, err := os.Open(rpcConfig.DumpFileName)
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer jsonFile.Close()
 
-	data := make(map[string]AccountDump)
-	byteValue, err := io.ReadAll(jsonFile)
-	if err != nil {
-		fmt.Println("Error reading JSON data:", err)
-		return
-	}
-
-	err = json.Unmarshal(byteValue, &data)
-	if err != nil {
-		fmt.Println("Error parsing JSON data:", err)
-		return
-	}
-
-	totalChecks := 2
+	totalChecks := 59100
 	wrongChecks := []int{}
-	for blockNo := 0; blockNo < totalChecks; blockNo++ {
+	for blockNo := 59000; blockNo < totalChecks; blockNo++ {
 		remoteHash := getHash(rpcConfig.Url, blockNo)
 		localHash := getHash("http://localhost:8545", blockNo)
 		if remoteHash != localHash {

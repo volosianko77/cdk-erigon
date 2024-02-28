@@ -800,7 +800,7 @@ func verifyStateRoot(dbSmt *smt.SMT, expectedRootHash *libcommon.Hash, cfg *ZkIn
 		bigTxNo := big.NewInt(0)
 		bigTxNo.SetUint64(blockNo)
 
-		log.Error("[zkevm] - txno: ", bigTxNo)
+		log.Error("[zkevm] - txno: ", blockNo)
 		log.Error("[zkevm] - expected root: ", expectedRootHash.Hex())
 		log.Error("[zkevm] - actual root: ", hash.Hex())
 

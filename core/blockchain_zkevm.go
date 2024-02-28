@@ -53,6 +53,7 @@ func ExecuteBlockEphemerallyZk(
 	getTracer func(txIndex int, txHash libcommon.Hash) (vm.EVMLogger, error),
 	dbTx kv.RwTx,
 	roHermezDb state.ReadOnlyHermezDb,
+	blockGasLimit uint64,
 ) (*EphemeralExecResult, error) {
 
 	defer BlockExecutionTimer.UpdateDuration(time.Now())
@@ -60,7 +61,6 @@ func ExecuteBlockEphemerallyZk(
 	ibs := state.New(stateReader)
 	header := block.Header()
 	blockTransactions := block.Transactions()
-	blockGasLimit := block.GasLimit()
 	gp := new(GasPool)
 	gp.AddGas(blockGasLimit)
 
