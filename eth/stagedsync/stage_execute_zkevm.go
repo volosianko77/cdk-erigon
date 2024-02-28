@@ -195,18 +195,13 @@ Loop:
 
 		shouldUpdateProgress := batch.BatchSize() >= int(cfg.batchSize)
 		if shouldUpdateProgress {
-			log.Info("Committed State", "gas reached", currentStateGas, "gasTarget", gasState)
+			if !quiet {
+				log.Info("Committed State", "gas reached", currentStateGas, "gasTarget", gasState)
+			}
 			currentStateGas = 0
-			if err = batch.Commit(); err != nil {
-				return err
-			}
-			if err = s.Update(tx, stageProgress); err != nil {
-				return err
-			}
+			saveProgress(s, tx, stageProgress, batch, !useExternalTx, quiet, logPrefix)
+
 			if !useExternalTx {
-				if err = tx.Commit(); err != nil {
-					return err
-				}
 				tx, err = cfg.db.BeginRw(context.Background())
 				if err != nil {
 					return err
@@ -239,30 +234,38 @@ Loop:
 		}
 	}
 
-	if err = s.Update(batch, stageProgress); err != nil {
-		return err
-	}
-	if err = batch.Commit(); err != nil {
-		return fmt.Errorf("batch commit: %w", err)
-	}
-
 	_, err = rawdb.IncrementStateVersion(tx)
 	if err != nil {
 		return fmt.Errorf("writing plain state version: %w", err)
 	}
 
-	if !useExternalTx {
-		log.Info(fmt.Sprintf("[%s] Commiting DB transaction...", logPrefix), "block", stageProgress)
-
-		if err = tx.Commit(); err != nil {
-			return err
-		}
+	if err := saveProgress(s, tx, stageProgress, batch, !useExternalTx, quiet, logPrefix); err != nil {
+		return err
 	}
 
 	if !quiet {
 		log.Info(fmt.Sprintf("[%s] Completed on", logPrefix), "block", stageProgress)
 	}
 	return stoppedErr
+}
+
+func saveProgress(stage *StageState, tx kv.RwTx, stageProgress uint64, batch ethdb.DbWithPendingMutations, commitTx, quiet bool, logPrefix string) error {
+	if err := stage.Update(batch, stageProgress); err != nil {
+		return err
+	}
+	if err := batch.Commit(); err != nil {
+		return fmt.Errorf("batch commit: %w", err)
+	}
+
+	if commitTx {
+		if !quiet {
+			log.Info(fmt.Sprintf("[%s] Commiting DB transaction...", logPrefix), "block", stageProgress)
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getPreexecuteValues(cfg ExecuteBlockCfg, ctx context.Context, tx kv.RwTx, blockNum uint64) (common.Hash, *types.Block, *types.Header, []common.Address, error) {
