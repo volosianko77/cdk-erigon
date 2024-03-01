@@ -34,14 +34,19 @@ func main() {
 
 	// highest block number
 	highestBlockRemote, err := rpcClientRemote.BlockNumber(context.Background())
+	if err != nil {
+		panic(fmt.Sprintf("error rpcClientRemote.BlockNumber: %s", err))
+	}
 	highestBlockLocal, err := rpcClientLocal.BlockNumber(context.Background())
-
+	if err != nil {
+		panic(fmt.Sprintf("error rpcClientLocal.BlockNumber: %s", err))
+	}
 	highestBlockNumber := highestBlockRemote
-	if highestBlockLocal > highestBlockRemote {
+	if highestBlockLocal < highestBlockRemote {
 		highestBlockNumber = highestBlockLocal
 	}
 
-	log.Info("highestBlockRemote", highestBlockRemote, "highestBlockLocal", highestBlockLocal, "working highestBlockNumber", highestBlockNumber)
+	log.Warn("Starting blockhash mismatch check", "highestBlockRemote", highestBlockRemote, "highestBlockLocal", highestBlockLocal, "working highestBlockNumber", highestBlockNumber)
 
 	lowestBlockNumber := uint64(0)
 	checkBlockNumber := highestBlockNumber
@@ -63,7 +68,7 @@ func main() {
 		}
 
 		checkBlockNumber = (lowestBlockNumber + highestBlockNumber) / 2
-		if lowestBlockNumber == highestBlockNumber {
+		if lowestBlockNumber >= highestBlockNumber {
 			break
 		}
 	}
