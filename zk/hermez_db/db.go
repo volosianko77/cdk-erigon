@@ -11,20 +11,21 @@ import (
 	"github.com/ledgerwatch/log/v3"
 )
 
-const L1VERIFICATIONS = "hermez_l1Verifications"                   // l1blockno, batchno -> l1txhash
-const L1SEQUENCES = "hermez_l1Sequences"                           // l1blockno, batchno -> l1txhash
-const FORKIDS = "hermez_forkIds"                                   // batchNo -> forkId
-const FORKID_BLOCK = "hermez_forkIdBlock"                          // forkId -> startBlock
-const BLOCKBATCHES = "hermez_blockBatches"                         // l2blockno -> batchno
-const GLOBAL_EXIT_ROOTS = "hermez_globalExitRootsSaved"            // GER -> true
-const BLOCK_GLOBAL_EXIT_ROOTS = "hermez_globalExitRoots"           // l2blockno -> GER
-const GLOBAL_EXIT_ROOTS_BATCHES = "hermez_globalExitRoots_batches" // batchkno -> GER
-const TX_PRICE_PERCENTAGE = "hermez_txPricePercentage"             // txHash -> txPricePercentage
-const STATE_ROOTS = "hermez_stateRoots"                            // l2blockno -> stateRoot
-const L1_INFO_TREE_UPDATES = "l1_info_tree_updates"                // index -> L1InfoTreeUpdate
-const BLOCK_L1_INFO_TREE_INDEX = "block_l1_info_tree_index"        // block number -> l1 info tree index
-const L1_INJECTED_BATCHES = "l1_injected_batches"                  // index increasing by 1 -> injected batch for the start of the chain
-const BLOCK_INFO_ROOTS = "block_info_roots"                        // block number -> block info root hash
+const L1VERIFICATIONS = "hermez_l1Verifications"                       // l1blockno, batchno -> l1txhash
+const L1SEQUENCES = "hermez_l1Sequences"                               // l1blockno, batchno -> l1txhash
+const FORKIDS = "hermez_forkIds"                                       // batchNo -> forkId
+const FORKID_BLOCK = "hermez_forkIdBlock"                              // forkId -> startBlock
+const BLOCKBATCHES = "hermez_blockBatches"                             // l2blockno -> batchno
+const GLOBAL_EXIT_ROOTS = "hermez_globalExitRootsSaved"                // GER -> true
+const BLOCK_GLOBAL_EXIT_ROOTS = "hermez_globalExitRoots"               // l2blockno -> GER
+const GLOBAL_EXIT_ROOTS_BATCHES = "hermez_globalExitRoots_batches"     // batchkno -> GER
+const TX_PRICE_PERCENTAGE = "hermez_txPricePercentage"                 // txHash -> txPricePercentage
+const STATE_ROOTS = "hermez_stateRoots"                                // l2blockno -> stateRoot
+const L1_INFO_TREE_UPDATES = "l1_info_tree_updates"                    // index -> L1InfoTreeUpdate
+const BLOCK_L1_INFO_TREE_INDEX = "block_l1_info_tree_index"            // block number -> l1 info tree index
+const L1_INJECTED_BATCHES = "l1_injected_batches"                      // index increasing by 1 -> injected batch for the start of the chain
+const BLOCK_INFO_ROOTS = "block_info_roots"                            // block number -> block info root hash
+const INTERMEDIATE_TX_STATEROOTS = "hermez_intermediate_tx_stateRoots" // l2blockno -> stateRoot
 
 type HermezDb struct {
 	tx kv.RwTx
@@ -64,6 +65,7 @@ func CreateHermezBuckets(tx kv.RwTx) error {
 		BLOCK_L1_INFO_TREE_INDEX,
 		L1_INJECTED_BATCHES,
 		BLOCK_INFO_ROOTS,
+		INTERMEDIATE_TX_STATEROOTS,
 	}
 	for _, t := range tables {
 		if err := tx.CreateBucket(t); err != nil {
@@ -676,6 +678,49 @@ func (db *HermezDb) DeleteStateRoots(fromBlockNo, toBlockNo uint64) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (db *HermezDb) WriteIntermediateTxStateRoot(l2BlockNo uint64, txHash common.Hash, rpcRoot common.Hash) error {
+	numberBytes := Uint64ToBytes(l2BlockNo)
+	key := append(numberBytes, txHash.Bytes()...)
+
+	return db.tx.Put(INTERMEDIATE_TX_STATEROOTS, key, rpcRoot.Bytes())
+}
+
+func (db *HermezDbReader) GetIntermediateTxStateRoot(l2BlockNo uint64, txHash common.Hash) (common.Hash, error) {
+	numberBytes := Uint64ToBytes(l2BlockNo)
+	key := append(numberBytes, txHash.Bytes()...)
+	data, err := db.tx.GetOne(INTERMEDIATE_TX_STATEROOTS, key)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	return common.BytesToHash(data), nil
+}
+
+func (db *HermezDb) DeleteIntermediateTxStateRoots(fromBlockNo, toBlockNo uint64) error {
+	c, err := db.tx.Cursor(INTERMEDIATE_TX_STATEROOTS)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	var k []byte
+	for k, _, err = c.First(); k != nil; k, _, err = c.Next() {
+		if err != nil {
+			break
+		}
+
+		blockNum := BytesToUint64(k[:8])
+		if blockNum >= fromBlockNo && blockNum <= toBlockNo {
+			err := db.tx.Delete(INTERMEDIATE_TX_STATEROOTS, k)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

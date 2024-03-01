@@ -39,6 +39,7 @@ type HermezDb interface {
 	DeleteEffectiveGasPricePercentages(txHashes *[]common.Hash) error
 
 	WriteStateRoot(l2BlockNumber uint64, rpcRoot common.Hash) error
+	WriteIntermediateTxStateRoot(l2BlockNumber uint64, txHash common.Hash, rpcRoot common.Hash) error
 
 	DeleteForkIds(fromBatchNum, toBatchNum uint64) error
 	DeleteBlockBatches(fromBlockNum, toBlockNum uint64) error
@@ -389,6 +390,9 @@ func UnwindBatchesStage(u *stagedsync.UnwindState, tx kv.RwTx, cfg BatchesCfg, c
 	if err := hermezDb.DeleteStateRoots(fromBlock, toBlock); err != nil {
 		return fmt.Errorf("delete state roots error: %v", err)
 	}
+	if err := hermezDb.DeleteIntermediateTxStateRoots(fromBlock, toBlock); err != nil {
+		return fmt.Errorf("delete intermediate tx state roots error: %v", err)
+	}
 	if err := eriDb.DeleteHeaders(fromBlock); err != nil {
 		return fmt.Errorf("delete headers error: %v", err)
 	}
@@ -544,6 +548,10 @@ func writeL2Block(eriDb ErigonDb, hermezDb HermezDb, l2Block *types.FullL2Block)
 		}
 
 		if err := hermezDb.WriteStateRoot(l2Block.L2BlockNumber, transaction.StateRoot); err != nil {
+			return fmt.Errorf("write rpc root error: %v", err)
+		}
+
+		if err := hermezDb.WriteIntermediateTxStateRoot(l2Block.L2BlockNumber, ltx.Hash(), transaction.StateRoot); err != nil {
 			return fmt.Errorf("write rpc root error: %v", err)
 		}
 	}

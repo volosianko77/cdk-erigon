@@ -157,6 +157,9 @@ func ExecuteBlockEphemerallyZk(
 		}
 
 		receipt, execResult, err := ApplyTransaction_zkevm(chainConfig, blockHashFunc, engine, nil, gp, ibs, noop, header, tx, usedGas, *vmConfig, excessDataGas, effectiveGasPricePercentage)
+		if err != nil {
+			return nil, err
+		}
 		if writeTrace {
 			if ftracer, ok := vmConfig.Tracer.(vm.FlushableTracer); ok {
 				ftracer.Flush(tx)
@@ -170,6 +173,13 @@ func ExecuteBlockEphemerallyZk(
 		if execResult.Err == vm.ErrUnsupportedPrecompile {
 			localReceipt.Status = 1
 		}
+
+		// receipt root holds the intermediate stateroot after the tx
+		intermediateState, err := roHermezDb.GetIntermediateTxStateRoot(blockNum, tx.Hash())
+		if err != nil {
+			return nil, err
+		}
+		receipt.PostState = intermediateState.Bytes()
 
 		if err != nil {
 			if !vmConfig.StatelessExec {
