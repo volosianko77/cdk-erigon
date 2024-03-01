@@ -800,9 +800,9 @@ func verifyStateRoot(dbSmt *smt.SMT, expectedRootHash *libcommon.Hash, cfg *ZkIn
 		bigTxNo := big.NewInt(0)
 		bigTxNo.SetUint64(blockNo)
 
-		log.Error("[zkevm] - txno: ", blockNo)
-		log.Error("[zkevm] - expected root: ", expectedRootHash.Hex())
-		log.Error("[zkevm] - actual root: ", hash.Hex())
+		log.Error(fmt.Sprintf("[zkevm] - txno: %d", blockNo))
+		log.Error(fmt.Sprintf("[zkevm] - expected root: %s", expectedRootHash.Hex()))
+		log.Error(fmt.Sprintf("[zkevm] - actual root: %s", hash.Hex()))
 
 		sr, err := stateRootByTxNo(bigTxNo, cfg.zk.L2RpcUrl)
 		if err != nil {
