@@ -13,11 +13,12 @@ import (
 
 const dataStreamUrl = "stream.zkevm-rpc.com:6900"
 const cardonaDatastreamUrl = "datastream.cardona.zkevm-rpc.com:6900"
+const cardonaInternalUrl = "datastream.internal.zkevm-rpc.com:6900"
 
 // This code downloads headers and blocks from a datastream server.
 func main() {
 	// Create client
-	c := client.NewClient(cardonaDatastreamUrl, 0)
+	c := client.NewClient(cardonaInternalUrl, 0)
 
 	// Start client (connect to the server)
 	defer c.Stop()
@@ -26,40 +27,45 @@ func main() {
 	}
 
 	// create bookmark
-	bookmark := types.NewL2BlockBookmark(59093)
+	bookmark := types.NewL2BlockBookmark(5000)
 
 	// Read all entries from server
-	blocksRead, _, _, entriesReadAmount, err := c.ReadEntries(bookmark, 100)
+	blocksRead, _, _, entriesReadAmount, err := c.ReadEntries(bookmark, 1)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("Entries read amount: ", entriesReadAmount)
 	fmt.Println("Blocks read amount: ", len(*blocksRead))
 
-	lastGer := common.Hash{}
-	expectedDsBlock := uint64(1)
+	// lastGer := common.Hash{}
+	// expectedDsBlock := uint64(1)
 
-	var missingBlocks []uint64
+	// var missingBlocks []uint64
 
-	for i, dsBlock := range *blocksRead {
-		if i == 0 {
-			continue
-		}
+	for _, dsBlock := range *blocksRead {
+		fmt.Printf("Block number: %d, ForkID: %d\n", dsBlock.L2BlockNumber, dsBlock.ForkId)
 
-		if dsBlock.L2BlockNumber != expectedDsBlock {
-			missingBlocks = append(missingBlocks, dsBlock.L2BlockNumber)
-			log.Error("Missing blocks: %v", missingBlocks)
+		if len(dsBlock.L2Txs) > 0 {
+			fmt.Println("Block number: ", dsBlock.L2BlockNumber)
 		}
-		expectedDsBlock++
+		// if i == 0 {
+		// 	continue
+		// }
 
-		rpcBlock, _ := utils.GetBlockByHash(dsBlock.L2Blockhash.String())
-		match := matchBlocks(dsBlock, rpcBlock, lastGer)
-		if !match {
-			log.Error("Blocks don't match")
-		}
-		if lastGer.Hex() != dsBlock.GlobalExitRoot.Hex() {
-			lastGer = dsBlock.GlobalExitRoot
-		}
+		// if dsBlock.L2BlockNumber != expectedDsBlock {
+		// 	missingBlocks = append(missingBlocks, dsBlock.L2BlockNumber)
+		// 	log.Error("Missing blocks: %v", missingBlocks)
+		// }
+		// expectedDsBlock++
+
+		// rpcBlock, _ := utils.GetBlockByHash(dsBlock.L2Blockhash.String())
+		// match := matchBlocks(dsBlock, rpcBlock, lastGer)
+		// if !match {
+		// 	log.Error("Blocks don't match")
+		// }
+		// if lastGer.Hex() != dsBlock.GlobalExitRoot.Hex() {
+		// 	lastGer = dsBlock.GlobalExitRoot
+		// }
 	}
 }
 
