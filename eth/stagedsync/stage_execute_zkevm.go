@@ -137,7 +137,8 @@ func SpawnExecuteBlocksStageZk(s *StageState, u Unwinder, tx kv.RwTx, toBlock ui
 	if err != nil {
 		return err
 	}
-	prevBlockHash := header.Root
+	prevBlockStateRoot := header.Root
+	prevBlockHash := header.Hash()
 Loop:
 	for blockNum := stageProgress + 1; blockNum <= to; blockNum++ {
 		stageProgress = blockNum
@@ -163,6 +164,11 @@ Loop:
 			continue
 		}
 
+		//[hack] we do gasLimit changes just for the rpc
+		// so we change the block hash and we need to set the new hash
+		// as parent hash for the next block as well
+		header.ParentHash = prevBlockHash
+
 		lastLogTx += uint64(block.Transactions().Len())
 
 		// Incremental move of next stages depend on fully written ChangeSets, Receipts, CallTraceSet
@@ -179,7 +185,7 @@ Loop:
 			blockGasLimit = forkId7BlockGasLimit
 		}
 
-		if err = executeBlockZk(block, &prevBlockHash, header, tx, batch, cfg, *cfg.vmConfig, writeChangeSets, writeReceipts, writeCallTraces, initialCycle, stateStream, hermezDb, blockGasLimit); err != nil {
+		if err = executeBlockZk(block, &prevBlockStateRoot, header, tx, batch, cfg, *cfg.vmConfig, writeChangeSets, writeReceipts, writeCallTraces, initialCycle, stateStream, hermezDb, blockGasLimit); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				log.Warn(fmt.Sprintf("[%s] Execution failed", logPrefix), "block", blockNum, "hash", block.Hash().String(), "err", err)
 				if cfg.hd != nil {
@@ -217,7 +223,8 @@ Loop:
 		gasUsed := header.GasUsed
 		gas = gas + gasUsed
 		currentStateGas = currentStateGas + gasUsed
-		prevBlockHash = header.Root
+		prevBlockStateRoot = header.Root
+		prevBlockHash = header.Hash()
 
 		//commit values post execute
 		if err := postExecuteCommitValues(cfg, tx, eridb, batch, preExecuteHeaderHash, block, header, senders); err != nil {
@@ -360,7 +367,7 @@ func GetGasLimit(forkId uint16) uint64 {
 
 func executeBlockZk(
 	block *types.Block,
-	prevBlockHash *common.Hash,
+	prevBlockStateRoot *common.Hash,
 	header *types.Header,
 	tx kv.RwTx,
 	batch ethdb.Database,
@@ -401,7 +408,7 @@ func executeBlockZk(
 	var execRs *core.EphemeralExecResult
 	getHashFn := core.GetHashFn(block.Header(), getHeader)
 
-	execRs, err = core.ExecuteBlockEphemerallyZk(cfg.chainConfig, &vmConfig, getHashFn, cfg.engine, prevBlockHash, block, stateReader, stateWriter, ChainReaderImpl{config: cfg.chainConfig, tx: tx, blockReader: cfg.blockReader}, getTracer, tx, roHermezDb, blockGasLimit)
+	execRs, err = core.ExecuteBlockEphemerallyZk(cfg.chainConfig, &vmConfig, getHashFn, cfg.engine, prevBlockStateRoot, block, stateReader, stateWriter, ChainReaderImpl{config: cfg.chainConfig, tx: tx, blockReader: cfg.blockReader}, getTracer, tx, roHermezDb, blockGasLimit)
 
 	if err != nil {
 		return err
