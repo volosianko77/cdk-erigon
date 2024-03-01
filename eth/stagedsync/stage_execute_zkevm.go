@@ -352,10 +352,10 @@ func postExecuteCommitValues(
 
 func GetGasLimit(forkId uint16) uint64 {
 	if forkId < 7 {
-		return forkId8BlockGasLimit
+		return preForkId7BlockGasLimit
 	}
 
-	return preForkId7BlockGasLimit
+	return forkId8BlockGasLimit
 }
 
 func executeBlockZk(
