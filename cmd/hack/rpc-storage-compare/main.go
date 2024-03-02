@@ -59,25 +59,27 @@ func main() {
 		return
 	}
 
+	client, err := ethclient.Dial(rpcConfig.Url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	blockNumber := big.NewInt(rpcConfig.Block)
+
 	for accountHash, storageMap := range accountDump {
-		compareBalance(rpcConfig, accountHash, storageMap.Balance)
-		compareNonce(rpcConfig, accountHash, storageMap.Nonce)
-		compareCodeHash(rpcConfig, accountHash, storageMap.Codehash.Hex())
+		compareBalance(client, blockNumber, accountHash, storageMap.Balance)
+		compareNonce(client, blockNumber, accountHash, storageMap.Nonce)
+		compareCodeHash(client, blockNumber, accountHash, storageMap.Codehash.Hex())
 		for key, value := range storageMap.Storage {
-			compareValuesString(rpcConfig, accountHash, key, value)
+			compareValuesString(client, blockNumber, accountHash, key, value)
 		}
 	}
 
 	fmt.Println("Check finished.")
 }
 
-func compareValuesString(cfg RpcConfig, accountHash, key, localValue string) {
-	client, err := ethclient.Dial(cfg.Url)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	rpcValueBytes, err := client.StorageAt(context.Background(), libcommon.HexToAddress(accountHash), libcommon.HexToHash(key), big.NewInt(cfg.Block))
+func compareValuesString(client *ethclient.Client, blockNumber *big.Int, accountHash, key, localValue string) {
+	rpcValueBytes, err := client.StorageAt(context.Background(), libcommon.HexToAddress(accountHash), libcommon.HexToHash(key), blockNumber)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -89,13 +91,8 @@ func compareValuesString(cfg RpcConfig, accountHash, key, localValue string) {
 	}
 }
 
-func compareBalance(cfg RpcConfig, accountHash, value string) {
-	client, err := ethclient.Dial(cfg.Url)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	balance, err := client.BalanceAt(context.Background(), libcommon.HexToAddress(accountHash), big.NewInt(cfg.Block))
+func compareBalance(client *ethclient.Client, blockNumber *big.Int, accountHash, value string) {
+	balance, err := client.BalanceAt(context.Background(), libcommon.HexToAddress(accountHash), blockNumber)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,13 +103,8 @@ func compareBalance(cfg RpcConfig, accountHash, value string) {
 	}
 }
 
-func compareNonce(cfg RpcConfig, accountHash string, value uint64) {
-	client, err := ethclient.Dial(cfg.Url)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	nonce, err := client.NonceAt(context.Background(), libcommon.HexToAddress(accountHash), big.NewInt(cfg.Block))
+func compareNonce(client *ethclient.Client, blockNumber *big.Int, accountHash string, value uint64) {
+	nonce, err := client.NonceAt(context.Background(), libcommon.HexToAddress(accountHash), blockNumber)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -122,13 +114,8 @@ func compareNonce(cfg RpcConfig, accountHash string, value uint64) {
 	}
 }
 
-func compareCodeHash(cfg RpcConfig, accountHash, value string) {
-	client, err := ethclient.Dial(cfg.Url)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	rpcCodeBytes, err := client.CodeAt(context.Background(), libcommon.HexToAddress(accountHash), big.NewInt(cfg.Block))
+func compareCodeHash(client *ethclient.Client, blockNumber *big.Int, accountHash, value string) {
+	rpcCodeBytes, err := client.CodeAt(context.Background(), libcommon.HexToAddress(accountHash), blockNumber)
 	if err != nil {
 		log.Fatal(err)
 	}

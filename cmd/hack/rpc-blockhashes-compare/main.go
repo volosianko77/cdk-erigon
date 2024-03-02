@@ -20,26 +20,26 @@ import (
 func main() {
 	rpcConfig, err := getConf()
 	if err != nil {
-		panic(fmt.Sprintf("error RPGCOnfig: %s", err))
+		panic(fmt.Sprintf("RPGCOnfig: %s", err))
 	}
 
 	rpcClientRemote, err := ethclient.Dial(rpcConfig.Url)
 	if err != nil {
-		panic(fmt.Sprintf("error ethclient.Dial: %s", err))
+		panic(fmt.Sprintf("ethclient.Dial: %s", err))
 	}
 	rpcClientLocal, err := ethclient.Dial("http://localhost:8545")
 	if err != nil {
-		panic(fmt.Sprintf("error ethclient.Dial: %s", err))
+		panic(fmt.Sprintf("ethclient.Dial: %s", err))
 	}
 
 	// highest block number
 	highestBlockRemote, err := rpcClientRemote.BlockNumber(context.Background())
 	if err != nil {
-		panic(fmt.Sprintf("error rpcClientRemote.BlockNumber: %s", err))
+		panic(fmt.Sprintf("rpcClientRemote.BlockNumber: %s", err))
 	}
 	highestBlockLocal, err := rpcClientLocal.BlockNumber(context.Background())
 	if err != nil {
-		panic(fmt.Sprintf("error rpcClientLocal.BlockNumber: %s", err))
+		panic(fmt.Sprintf("rpcClientLocal.BlockNumber: %s", err))
 	}
 	highestBlockNumber := highestBlockRemote
 	if highestBlockLocal < highestBlockRemote {
@@ -54,6 +54,7 @@ func main() {
 	var blockRemote, blockLocal *types.Block
 
 	for {
+		log.Warn("Checking for block", "blockNumber", checkBlockNumber)
 		// get blocks
 		blockRemote, blockLocal, err = getBlocks(*rpcClientLocal, *rpcClientRemote, checkBlockNumber)
 		if err != nil {
@@ -63,8 +64,10 @@ func main() {
 		// if they match, go higher
 		if blockRemote.Hash() == blockLocal.Hash() {
 			lowestBlockNumber = checkBlockNumber + 1
+			log.Warn("Blockhash match")
 		} else {
 			highestBlockNumber = checkBlockNumber
+			log.Warn("Blockhash MISMATCH")
 		}
 
 		checkBlockNumber = (lowestBlockNumber + highestBlockNumber) / 2
@@ -96,17 +99,40 @@ func main() {
 		if blockRemote.TxHash() != blockLocal.TxHash() {
 			log.Warn("TxHash", "Rpc", blockRemote.TxHash().Hex(), "Local", blockLocal.TxHash().Hex())
 		}
+
+		remoteTxHashes := make([]common.Hash, len(blockRemote.Transactions()))
+		for i, tx := range blockRemote.Transactions() {
+			remoteTxHashes[i] = tx.Hash()
+		}
+		localTxHashes := make([]common.Hash, len(blockLocal.Transactions()))
+		for i, tx := range blockLocal.Transactions() {
+			localTxHashes[i] = tx.Hash()
+		}
+
+		if len(remoteTxHashes) != len(localTxHashes) {
+			log.Warn("Transactions amount mismatch", "Rpc", len(remoteTxHashes), "Local", len(localTxHashes))
+
+			log.Warn("RPc transactions", "txs", remoteTxHashes)
+			log.Warn("Local transactions", "txs", localTxHashes)
+		} else {
+			for i, txRemote := range localTxHashes {
+				txLocal := localTxHashes[i]
+				if txRemote != txLocal {
+					log.Warn("TxHash", txRemote.Hex(), txLocal.Hex())
+				}
+			}
+		}
+
 		if blockRemote.ReceiptHash() != blockLocal.ReceiptHash() {
-			log.Warn("ReceiptHash", "Rpc", blockRemote.ReceiptHash().Hex(), "Local", blockLocal.ReceiptHash().Hex())
-			for _, tx := range blockRemote.Transactions() {
-				receiptLocal, receiptRpc, err := getReceipt(*rpcClientLocal, *rpcClientRemote, tx.Hash())
+			log.Warn("ReceiptHash mismatch. Checking receipts", "Rpc receipt hash", blockRemote.ReceiptHash().Hex(), "Local receipt hash", blockLocal.ReceiptHash().Hex())
+			for y, tx := range remoteTxHashes {
+				receiptLocal, receiptRpc, err := getReceipt(*rpcClientLocal, *rpcClientRemote, tx)
 				if err != nil {
-					log.Error(fmt.Sprintf("error getReceipt: %s", err))
+					log.Error(fmt.Sprintf("getReceipt: %s", err))
 					return
 				}
 				log.Warn("-------------------------------------------------")
-				log.Warn("Checking Receipts for tx.", "TxHash", tx.Hash().Hex())
-				log.Warn("-------------------------------------------------")
+				log.Warn("Checking Receipts for tx.", "TxHash", tx.Hex())
 
 				if receiptLocal.Status != receiptRpc.Status {
 					log.Warn("ReceiptStatus", "Rpc", receiptRpc.Status, "Local", receiptLocal.Status)
@@ -115,7 +141,7 @@ func main() {
 					log.Warn("CumulativeGasUsed", "Rpc", receiptRpc.CumulativeGasUsed, "Local", receiptLocal.CumulativeGasUsed)
 				}
 				if !reflect.DeepEqual(receiptLocal.PostState, receiptRpc.PostState) {
-					log.Warn("PostState", "Rpc", receiptRpc.PostState, "Local", receiptLocal.PostState)
+					log.Warn("PostState", "Rpc", common.BytesToHash(receiptRpc.PostState), "Local", common.BytesToHash(receiptLocal.PostState))
 				}
 				if receiptLocal.ContractAddress != receiptRpc.ContractAddress {
 					log.Warn("ContractAddress", "Rpc", receiptRpc.ContractAddress, "Local", receiptLocal.ContractAddress)
@@ -127,8 +153,35 @@ func main() {
 					log.Warn("LogsBloom", "Rpc", receiptRpc.Bloom, "Local", receiptLocal.Bloom)
 				}
 
-				for i, logRemote := range receiptRpc.Logs {
+				if len(receiptRpc.Logs) != len(receiptLocal.Logs) {
+					log.Warn("Receipt log amount mismatch", "receipt index", y, "Rpc log amount", len(receiptRpc.Logs), "Local log amount", len(receiptLocal.Logs))
+
+					rpcLogIndexes := make([]uint, len(receiptRpc.Logs))
+					for i, log := range receiptRpc.Logs {
+						rpcLogIndexes[i] = log.Index
+					}
+					localLogIndexes := make([]uint, len(receiptLocal.Logs))
+					for i, log := range receiptLocal.Logs {
+						localLogIndexes[i] = log.Index
+					}
+
+					log.Warn("RPc log indexes", "Remote log indexes", rpcLogIndexes)
+					log.Warn("Local log indexes", "Local log indexes", localLogIndexes)
+				}
+
+				// still check the available logs
+				// there should be a mismatch on the first index they differ
+				smallerLogLength := len(receiptLocal.Logs)
+				if len(receiptRpc.Logs) < len(receiptLocal.Logs) {
+					smallerLogLength = len(receiptRpc.Logs)
+				}
+				for i := 0; i < smallerLogLength; i++ {
+
+					log.Warn("-------------------------------------------------")
+					log.Warn("	Checking Logs for receipt.", "index", i)
 					logLocal := receiptLocal.Logs[i]
+					logRemote := receiptRpc.Logs[i]
+
 					if logRemote.Address != logLocal.Address {
 						log.Warn("Log Address", "index", i, "Rpc", logRemote.Address, "Local", logLocal.Address)
 					}
@@ -136,14 +189,41 @@ func main() {
 						log.Warn("Log Data", "index", i, "Rpc", logRemote.Data, "Local", logLocal.Data)
 					}
 
-					for j, topic := range logRemote.Topics {
-						topicLocal := logLocal.Topics[j]
-						if topic != topicLocal {
-							log.Warn("Log Topic", "Log index", i, "Topic index", j, "Rpc", topic, "Local", topicLocal)
+					if logRemote.Index != logLocal.Index {
+						log.Warn("Log Index", "index", i, "Rpc", logRemote.Index, "Local", logLocal.Index)
+					}
+
+					if logRemote.BlockNumber != logLocal.BlockNumber {
+						log.Warn("Log BlockNumber", "index", i, "Rpc", logRemote.BlockNumber, "Local", logLocal.BlockNumber)
+					}
+
+					if logRemote.TxHash != logLocal.TxHash {
+						log.Warn("Log TxHash", "index", i, "Rpc", logRemote.TxHash, "Local", logLocal.TxHash)
+					}
+
+					if logRemote.TxIndex != logLocal.TxIndex {
+						log.Warn("Log TxIndex", "index", i, "Rpc", logRemote.TxIndex, "Local", logLocal.TxIndex)
+					}
+
+					// don't check blockhash at this point it is most certainly mismatching and this only spams
+					// if logRemote.BlockHash != logLocal.BlockHash {
+					// 	log.Warn("Log BlockHash", "index", i, "Rpc", logRemote.BlockHash, "Local", logLocal.BlockHash)
+					// }
+
+					if len(logRemote.Topics) != len(logLocal.Topics) {
+						log.Warn("Log Topics amount mismatch", "Log index", i, "Rpc", len(logRemote.Topics), "Local", len(logLocal.Topics))
+						log.Warn("Rpc Topics", "Topics", logRemote.Topics)
+						log.Warn("Local Topics", "Topics", logLocal.Topics)
+					} else {
+						for j, topicRemote := range logRemote.Topics {
+							topicLocal := logLocal.Topics[j]
+							if topicRemote != topicLocal {
+								log.Warn("Log Topic", "Log index", i, "Topic index", j, "Rpc", topicRemote, "Local", topicLocal)
+							}
 						}
 					}
+					log.Warn("-------------------------------------------------")
 				}
-				log.Warn("-------------------------------------------------")
 				log.Warn("Finished tx check")
 				log.Warn("-------------------------------------------------")
 			}
@@ -175,13 +255,6 @@ func main() {
 		if blockRemote.BaseFee() != blockLocal.BaseFee() {
 			log.Warn("BaseFee", "Rpc", blockRemote.BaseFee(), "Local", blockLocal.BaseFee())
 		}
-
-		for i, txRemote := range blockRemote.Transactions() {
-			txLocal := blockLocal.Transactions()[i]
-			if txRemote.Hash() != txLocal.Hash() {
-				log.Warn("TxHash", txRemote.Hash().Hex(), txLocal.Hash().Hex())
-			}
-		}
 	}
 
 	log.Warn("Check finished!")
@@ -190,11 +263,11 @@ func main() {
 func getReceipt(clientLocal, clientRemote ethclient.Client, txHash common.Hash) (*types.Receipt, *types.Receipt, error) {
 	receiptsLocal, err := clientLocal.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error clientLocal.TransactionReceipts: %s", err)
+		return nil, nil, fmt.Errorf("clientLocal.TransactionReceipts: %s", err)
 	}
 	receiptsRemote, err := clientRemote.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error clientRemote.TransactionReceipts: %s", err)
+		return nil, nil, fmt.Errorf("clientRemote.TransactionReceipts: %s", err)
 	}
 	return receiptsLocal, receiptsRemote, nil
 }
@@ -203,19 +276,17 @@ func getBlocks(clientLocal, clientRemote ethclient.Client, blockNum uint64) (*ty
 	blockNumBig := new(big.Int).SetUint64(blockNum)
 	blockLocal, err := clientLocal.BlockByNumber(context.Background(), blockNumBig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error clientLocal.BlockByNumber: %s", err)
+		return nil, nil, fmt.Errorf("clientLocal.BlockByNumber: %s", err)
 	}
 	blockRemote, err := clientRemote.BlockByNumber(context.Background(), blockNumBig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error clientRemote.BlockByNumber: %s", err)
+		return nil, nil, fmt.Errorf("clientRemote.BlockByNumber: %s", err)
 	}
 	return blockLocal, blockRemote, nil
 }
 
 type RpcConfig struct {
-	Url          string `yaml:"url"`
-	DumpFileName string `yaml:"dumpFileName"`
-	Block        string `yaml:"block"`
+	Url string `yaml:"url"`
 }
 
 func getConf() (RpcConfig, error) {
