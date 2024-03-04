@@ -62,12 +62,12 @@ type LegacyExecutorVerifier struct {
 }
 
 func NewLegacyExecutorVerifier(
-	cfg ethconfig.Zk,
-	executors []ILegacyExecutor,
-	chainCfg *chain.Config,
-	db kv.RwDB,
-	witnessGenerator WitnessGenerator,
-	l1Syncer *syncer.L1Syncer,
+    cfg ethconfig.Zk,
+    executors []ILegacyExecutor,
+    chainCfg *chain.Config,
+    db kv.RwDB,
+    witnessGenerator WitnessGenerator,
+    l1Syncer *syncer.L1Syncer,
 ) *LegacyExecutorVerifier {
 	executorLocks := make([]*sync.Mutex, len(executors))
 	for i := range executorLocks {
@@ -125,14 +125,19 @@ func (v *LegacyExecutorVerifier) StartWork() {
 	}()
 }
 
+func (v *LegacyExecutorVerifier) HasExecutors() bool {
+	return len(v.executors) > 0
+}
+
 func (v *LegacyExecutorVerifier) handleRequest(ctx context.Context, request *VerifierRequest) error {
 	// if we have no executor config then just skip this step and treat everything as OK
+	// and immediately place the response into the responses
 	if len(v.executors) == 0 {
 		response := &VerifierResponse{
 			BatchNumber: request.BatchNumber,
 			Valid:       true,
 		}
-		v.responseChan <- response
+		v.handleResponse(response)
 		return nil
 	}
 

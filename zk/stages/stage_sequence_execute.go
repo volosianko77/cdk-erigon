@@ -58,20 +58,17 @@ const (
 	// stateStreamLimit - don't accumulate state changes if jump is bigger than this amount of blocks
 	stateStreamLimit uint64 = 1_000
 
-	transactionGasLimit = 30000000
-	blockGasLimit       = 18446744073709551615
+	transactionGasLimit = 30_000_000
+	blockGasLimit       = 1125899906842624
 
 	totalVirtualCounterSmtLevel = 80 // todo [zkevm] this should be read from the db
 
-	etrogForkId = 7 // todo [zkevm] we need a better way of handling this
+	etrogForkId = 8 // todo [zkevm] we need a better way of handling this
 
 	yieldSize = 100 // arbitrary number defining how many transactions to yield from the pool at once
 )
 
 var (
-	// todo: seq: this should be read in from somewhere rather than hard coded!
-	constMiner = common.HexToAddress("0xfa3b44587990f97ba8b6ba7e230a5f0e95d14b3d")
-
 	noop            = state.NewNoopWriter()
 	blockDifficulty = new(big.Int).SetUint64(0)
 )
@@ -107,27 +104,27 @@ type SequenceBlockCfg struct {
 }
 
 func StageSequenceBlocksCfg(
-	db kv.RwDB,
-	pm prune.Mode,
-	batchSize datasize.ByteSize,
-	changeSetHook ChangeSetHook,
-	chainConfig *chain.Config,
-	engine consensus.Engine,
-	vmConfig *vm.ZkConfig,
-	accumulator *shards.Accumulator,
-	stateStream bool,
-	badBlockHalt bool,
+    db kv.RwDB,
+    pm prune.Mode,
+    batchSize datasize.ByteSize,
+    changeSetHook ChangeSetHook,
+    chainConfig *chain.Config,
+    engine consensus.Engine,
+    vmConfig *vm.ZkConfig,
+    accumulator *shards.Accumulator,
+    stateStream bool,
+    badBlockHalt bool,
 
-	historyV3 bool,
-	dirs datadir.Dirs,
-	blockReader services.FullBlockReader,
-	genesis *types.Genesis,
-	syncCfg ethconfig.Sync,
-	agg *libstate.AggregatorV3,
-	zk *ethconfig.Zk,
+    historyV3 bool,
+    dirs datadir.Dirs,
+    blockReader services.FullBlockReader,
+    genesis *types.Genesis,
+    syncCfg ethconfig.Sync,
+    agg *libstate.AggregatorV3,
+    zk *ethconfig.Zk,
 
-	txPool *txpool.TxPool,
-	txPoolDb kv.RwDB,
+    txPool *txpool.TxPool,
+    txPoolDb kv.RwDB,
 ) SequenceBlockCfg {
 	return SequenceBlockCfg{
 		db:            db,
@@ -153,14 +150,14 @@ func StageSequenceBlocksCfg(
 }
 
 func SpawnSequencingStage(
-	s *stagedsync.StageState,
-	u stagedsync.Unwinder,
-	tx kv.RwTx,
-	toBlock uint64,
-	ctx context.Context,
-	cfg SequenceBlockCfg,
-	initialCycle bool,
-	quiet bool,
+    s *stagedsync.StageState,
+    u stagedsync.Unwinder,
+    tx kv.RwTx,
+    toBlock uint64,
+    ctx context.Context,
+    cfg SequenceBlockCfg,
+    initialCycle bool,
+    quiet bool,
 ) (err error) {
 	logPrefix := s.LogPrefix()
 	log.Info(fmt.Sprintf("[%s] Starting sequencing stage", logPrefix))
@@ -197,13 +194,13 @@ func SpawnSequencingStage(
 	newBlockTimestamp := uint64(time.Now().Unix())
 
 	header := &types.Header{
-		ParentHash: parentBlock.Hash(),
-		Coinbase:   constMiner,
-		Difficulty: blockDifficulty,
-		Number:     new(big.Int).SetUint64(nextBlockNum),
-		GasLimit:   blockGasLimit,
-		Time:       newBlockTimestamp,
-		BaseFee:    big.NewInt(0),
+		ParentHash:      parentBlock.Hash(),
+		Coinbase:        cfg.zk.SequencerAddress,
+		Difficulty:      blockDifficulty,
+		Number:          new(big.Int).SetUint64(nextBlockNum),
+		GasLimit:        blockGasLimit,
+		Time:            newBlockTimestamp,
+		WithdrawalsHash: nil,
 	}
 
 	stateReader := state.NewPlainStateReader(tx)
@@ -368,13 +365,13 @@ const (
 )
 
 func processInjectedInitialBatch(
-	hermezDb *hermez_db.HermezDb,
-	ibs *state.IntraBlockState,
-	tx kv.RwTx,
-	cfg SequenceBlockCfg,
-	header *types.Header,
-	parentBlock *types.Block,
-	stateReader *state.PlainStateReader,
+    hermezDb *hermez_db.HermezDb,
+    ibs *state.IntraBlockState,
+    tx kv.RwTx,
+    cfg SequenceBlockCfg,
+    header *types.Header,
+    parentBlock *types.Block,
+    stateReader *state.PlainStateReader,
 ) error {
 	injected, err := hermezDb.GetL1InjectedBatch(0)
 	if err != nil {
@@ -412,15 +409,15 @@ func processInjectedInitialBatch(
 }
 
 func postBlockStateHandling(
-	cfg SequenceBlockCfg,
-	ibs *state.IntraBlockState,
-	hermezDb *hermez_db.HermezDb,
-	header *types.Header,
-	ger common.Hash,
-	l1BlockHash common.Hash,
-	parentHash common.Hash,
-	transactions types.Transactions,
-	receipts []*types.Receipt,
+    cfg SequenceBlockCfg,
+    ibs *state.IntraBlockState,
+    hermezDb *hermez_db.HermezDb,
+    header *types.Header,
+    ger common.Hash,
+    l1BlockHash common.Hash,
+    parentHash common.Hash,
+    transactions types.Transactions,
+    receipts []*types.Receipt,
 ) error {
 	infoTree := blockinfo.NewBlockInfoTree()
 	coinbase := header.Coinbase
@@ -481,13 +478,13 @@ func postBlockStateHandling(
 }
 
 func handleInjectedBatch(
-	cfg SequenceBlockCfg,
-	dbTx kv.RwTx,
-	ibs *state.IntraBlockState,
-	hermezDb *hermez_db.HermezDb,
-	injected *zktypes.L1InjectedBatch,
-	header *types.Header,
-	parentBlock *types.Block,
+    cfg SequenceBlockCfg,
+    dbTx kv.RwTx,
+    ibs *state.IntraBlockState,
+    hermezDb *hermez_db.HermezDb,
+    injected *zktypes.L1InjectedBatch,
+    header *types.Header,
+    parentBlock *types.Block,
 ) (*types.Transaction, *types.Receipt, error) {
 	txs, _, _, err := tx.DecodeTxs(injected.Transaction, 5)
 	if err != nil {
@@ -509,18 +506,18 @@ func handleInjectedBatch(
 }
 
 func finaliseBlock(
-	cfg SequenceBlockCfg,
-	tx kv.RwTx,
-	hermezDb *hermez_db.HermezDb,
-	ibs *state.IntraBlockState,
-	stateReader *state.PlainStateReader,
-	newHeader *types.Header,
-	parentBlock *types.Block,
-	transactions []types.Transaction,
-	receipts types.Receipts,
-	batch uint64,
-	ger common.Hash,
-	l1BlockHash common.Hash,
+    cfg SequenceBlockCfg,
+    tx kv.RwTx,
+    hermezDb *hermez_db.HermezDb,
+    ibs *state.IntraBlockState,
+    stateReader *state.PlainStateReader,
+    newHeader *types.Header,
+    parentBlock *types.Block,
+    transactions []types.Transaction,
+    receipts types.Receipts,
+    batch uint64,
+    ger common.Hash,
+    l1BlockHash common.Hash,
 ) error {
 
 	stateWriter := state.NewPlainStateWriter(tx, tx, newHeader.Number.Uint64())
@@ -548,7 +545,7 @@ func finaliseBlock(
 		cfg.chainConfig,
 		ibs,
 		receipts,
-		[]*types.Withdrawal{}, // no withdrawals
+		nil,
 		chainReader,
 		true,
 		excessDataGas,
@@ -558,7 +555,7 @@ func finaliseBlock(
 	}
 
 	finalHeader := finalBlock.Header()
-	finalHeader.Coinbase = constMiner
+	finalHeader.Coinbase = cfg.zk.SequencerAddress
 	finalHeader.GasLimit = blockGasLimit
 	finalHeader.ReceiptHash = types.DeriveSha(receipts)
 	newNum := finalBlock.Number()
@@ -600,12 +597,12 @@ func finaliseBlock(
 }
 
 func handleStateForNewBlockStarting(
-	chainConfig *chain.Config,
-	blockNumber uint64,
-	timestamp uint64,
-	stateRoot *common.Hash,
-	l1info *zktypes.L1InfoTreeUpdate,
-	ibs *state.IntraBlockState,
+    chainConfig *chain.Config,
+    blockNumber uint64,
+    timestamp uint64,
+    stateRoot *common.Hash,
+    l1info *zktypes.L1InfoTreeUpdate,
+    ibs *state.IntraBlockState,
 ) error {
 	ibs.PreExecuteStateSet(chainConfig, blockNumber, timestamp, stateRoot)
 
@@ -623,11 +620,11 @@ func handleStateForNewBlockStarting(
 }
 
 func addSenders(
-	cfg SequenceBlockCfg,
-	newNum *big.Int,
-	finalTransactions types.Transactions,
-	tx kv.RwTx,
-	finalHeader *types.Header,
+    cfg SequenceBlockCfg,
+    newNum *big.Int,
+    finalTransactions types.Transactions,
+    tx kv.RwTx,
+    finalHeader *types.Header,
 ) error {
 	signer := types.MakeSigner(cfg.chainConfig, newNum.Uint64())
 	cryptoContext := secp256k1.ContextForThread(1)
@@ -666,14 +663,14 @@ func extractTransactionsFromSlot(slot types2.TxsRlp) ([]types.Transaction, error
 }
 
 func attemptAddTransaction(
-	tx kv.RwTx,
-	cfg SequenceBlockCfg,
-	batchCounters *vm.BatchCounterCollector,
-	header *types.Header,
-	parentHeader *types.Header,
-	transaction types.Transaction,
-	ibs *state.IntraBlockState,
-	hermezDb *hermez_db.HermezDb,
+    tx kv.RwTx,
+    cfg SequenceBlockCfg,
+    batchCounters *vm.BatchCounterCollector,
+    header *types.Header,
+    parentHeader *types.Header,
+    transaction types.Transaction,
+    ibs *state.IntraBlockState,
+    hermezDb *hermez_db.HermezDb,
 ) (*types.Receipt, bool, error) {
 	txCounters := vm.NewTransactionCounter(transaction, totalVirtualCounterSmtLevel)
 	overflow, err := batchCounters.AddNewTransactionCounters(txCounters)
@@ -698,7 +695,7 @@ func attemptAddTransaction(
 		cfg.chainConfig,
 		core.GetHashFn(header, getHeader),
 		cfg.engine,
-		&constMiner,
+		&cfg.zk.SequencerAddress,
 		gasPool,
 		ibs,
 		noop,

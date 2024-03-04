@@ -33,10 +33,10 @@ func StageDataStreamCatchupCfg(stream *datastreamer.StreamServer, db kv.RwDB, ch
 }
 
 func SpawnStageDataStreamCatchup(
-	s *stagedsync.StageState,
-	ctx context.Context,
-	tx kv.RwTx,
-	cfg DataStreamCatchupCfg,
+    s *stagedsync.StageState,
+    ctx context.Context,
+    tx kv.RwTx,
+    cfg DataStreamCatchupCfg,
 ) error {
 
 	logPrefix := s.LogPrefix()
@@ -102,7 +102,7 @@ func SpawnStageDataStreamCatchup(
 		return err
 	}
 
-	for ; currentBatch <= executorVerifyProgress; currentBatch++ {
+	for ; currentBatch-1 < executorVerifyProgress; currentBatch++ {
 		select {
 		case <-logTicker.C:
 			log.Info(fmt.Sprintf("[%s]: progress", logPrefix),
@@ -189,10 +189,10 @@ func preLoadBatchesToBlocks(tx kv.RwTx) (map[uint64][]uint64, error) {
 }
 
 func writeGenesisToStream(
-	genesis *eritypes.Block,
-	reader *hermez_db.HermezDbReader,
-	stream *datastreamer.StreamServer,
-	srv *server.DataStreamServer,
+    genesis *eritypes.Block,
+    reader *hermez_db.HermezDbReader,
+    stream *datastreamer.StreamServer,
+    srv *server.DataStreamServer,
 ) error {
 
 	batch, err := reader.GetBatchNoByL2Block(0)

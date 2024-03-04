@@ -19,8 +19,8 @@ type SequencerExecutorVerifyCfg struct {
 }
 
 func StageSequencerExecutorVerifyCfg(
-	db kv.RwDB,
-	verifier *legacy_executor_verifier.LegacyExecutorVerifier,
+    db kv.RwDB,
+    verifier *legacy_executor_verifier.LegacyExecutorVerifier,
 ) SequencerExecutorVerifyCfg {
 	return SequencerExecutorVerifyCfg{
 		db:       db,
@@ -29,13 +29,13 @@ func StageSequencerExecutorVerifyCfg(
 }
 
 func SpawnSequencerExecutorVerifyStage(
-	s *stagedsync.StageState,
-	u stagedsync.Unwinder,
-	tx kv.RwTx,
-	ctx context.Context,
-	cfg SequencerExecutorVerifyCfg,
-	initialCycle bool,
-	quiet bool,
+    s *stagedsync.StageState,
+    u stagedsync.Unwinder,
+    tx kv.RwTx,
+    ctx context.Context,
+    cfg SequencerExecutorVerifyCfg,
+    initialCycle bool,
+    quiet bool,
 ) error {
 	var err error
 	freshTx := tx == nil
@@ -55,38 +55,6 @@ func SpawnSequencerExecutorVerifyStage(
 		return err
 	}
 
-	// get the latest responses from the verifier then sort them, so we can make sure we're handling verifications
-	// in order
-	responses := cfg.verifier.GetAllResponses()
-
-	// sort responses by batch number in ascending order
-	sort.Slice(responses, func(i, j int) bool {
-		return responses[i].BatchNumber < responses[j].BatchNumber
-	})
-
-	for _, response := range responses {
-		// ensure that the first response is the next batch based on the current stage progress
-		// otherwise just return early until we get it
-		if response.BatchNumber != progress+1 {
-			return nil
-		}
-
-		// now check that we are indeed in a good state to continue
-		if !response.Valid {
-			// now we need to rollback and handle the error
-			// todo [zkevm]!
-		}
-
-		// all good so just update the stage progress for now
-		if err = stages.SaveStageProgress(tx, stages.SequenceExecutorVerify, response.BatchNumber); err != nil {
-			return err
-		}
-
-		// now let the verifier know we have got this message, so it can release it
-		cfg.verifier.RemoveResponse(response.BatchNumber)
-		progress = response.BatchNumber
-	}
-
 	// progress here is at the block level
 	intersProgress, err := stages.GetStageProgress(tx, stages.IntermediateHashes)
 	if err != nil {
@@ -99,6 +67,22 @@ func SpawnSequencerExecutorVerifyStage(
 	if err != nil {
 		return err
 	}
+
+	// if we have no executors in the verifier (based on config) then this stage serves little purpose so just
+	// update the stage progress to let the data stream know to catch up
+	if !cfg.verifier.HasExecutors() {
+		if err = stages.SaveStageProgress(tx, stages.SequenceExecutorVerify, intersBatch); err != nil {
+			return err
+		}
+		if freshTx {
+			if err = tx.Commit(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	progress, err = handleLatestResponses(tx, cfg.verifier, progress)
 
 	// send off the new batches to the verifier to be processed
 	for batch := progress + 1; batch <= intersBatch; batch++ {
@@ -135,23 +119,59 @@ func SpawnSequencerExecutorVerifyStage(
 	return nil
 }
 
+func handleLatestResponses(tx kv.RwTx, verifier *legacy_executor_verifier.LegacyExecutorVerifier, progress uint64) (uint64, error) {
+	// get the latest responses from the verifier then sort them, so we can make sure we're handling verifications
+	// in order
+	responses := verifier.GetAllResponses()
+
+	// sort responses by batch number in ascending order
+	sort.Slice(responses, func(i, j int) bool {
+		return responses[i].BatchNumber < responses[j].BatchNumber
+	})
+
+	for _, response := range responses {
+		// ensure that the first response is the next batch based on the current stage progress
+		// otherwise just return early until we get it
+		if response.BatchNumber != progress+1 {
+			return 0, nil
+		}
+
+		// now check that we are indeed in a good state to continue
+		if !response.Valid {
+			// now we need to rollback and handle the error
+			// todo [zkevm] limbo mode engage!
+		}
+
+		// all good so just update the stage progress for now
+		if err := stages.SaveStageProgress(tx, stages.SequenceExecutorVerify, response.BatchNumber); err != nil {
+			return 0, err
+		}
+
+		// now let the verifier know we have got this message, so it can release it
+		verifier.RemoveResponse(response.BatchNumber)
+		progress = response.BatchNumber
+	}
+
+	return progress, nil
+}
+
 func UnwindSequencerExecutorVerifyStage(
-	u *stagedsync.UnwindState,
-	s *stagedsync.StageState,
-	tx kv.RwTx,
-	ctx context.Context,
-	cfg SequencerExecutorVerifyCfg,
-	initialCycle bool,
+    u *stagedsync.UnwindState,
+    s *stagedsync.StageState,
+    tx kv.RwTx,
+    ctx context.Context,
+    cfg SequencerExecutorVerifyCfg,
+    initialCycle bool,
 ) error {
 	return nil
 }
 
 func PruneSequencerExecutorVerifyStage(
-	s *stagedsync.PruneState,
-	tx kv.RwTx,
-	cfg SequencerExecutorVerifyCfg,
-	ctx context.Context,
-	initialCycle bool,
+    s *stagedsync.PruneState,
+    tx kv.RwTx,
+    cfg SequencerExecutorVerifyCfg,
+    ctx context.Context,
+    initialCycle bool,
 ) error {
 	return nil
 }
