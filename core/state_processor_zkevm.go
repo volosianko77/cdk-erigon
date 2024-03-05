@@ -35,7 +35,7 @@ import (
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func applyTransaction_zkevm(config *chain.Config, engine consensus.EngineReader, gp *GasPool, ibs *state.IntraBlockState, stateWriter state.StateWriter, header *types.Header, tx types.Transaction, usedGas *uint64, evm vm.VMInterface, cfg vm.Config, effectiveGasPricePercentage uint8) (*types.Receipt, *ExecutionResult, error) {
+func applyTransaction_zkevm(config *chain.Config, engine consensus.EngineReader, gp *GasPool, ibs *state.IntraBlockState, stateWriter state.StateWriter, header *types.Header, tx types.Transaction, evm vm.VMInterface, cfg vm.Config, effectiveGasPricePercentage uint8) (*types.Receipt, *ExecutionResult, error) {
 	rules := evm.ChainRules()
 
 	msg, err := tx.AsMessage(*types.MakeSigner(config, header.Number.Uint64()), header.BaseFee, rules)
@@ -75,34 +75,34 @@ func applyTransaction_zkevm(config *chain.Config, engine consensus.EngineReader,
 	if err = ibs.FinalizeTx(rules, stateWriter); err != nil {
 		return nil, nil, err
 	}
-	*usedGas += result.UsedGas
 
 	// Set the receipt logs and create the bloom filter.
 	// based on the eip phase, we're passing whether the root touch-delete accounts.
 	var receipt *types.Receipt
 	if !cfg.NoReceipts {
-		// by the tx.
-		receipt = &types.Receipt{Type: tx.Type(), CumulativeGasUsed: *usedGas}
+		status := types.ReceiptStatusSuccessful
 		if result.Failed() {
-			receipt.Status = types.ReceiptStatusFailed
-		} else {
-			receipt.Status = types.ReceiptStatusSuccessful
+			status = types.ReceiptStatusFailed
 		}
-		receipt.TxHash = tx.Hash()
-		receipt.GasUsed = result.UsedGas
+
 		// if the transaction created a contract, store the creation address in the receipt.
+		var contractAddress libcommon.Address
 		if msg.To() == nil {
-			receipt.ContractAddress = crypto.CreateAddress(evm.TxContext().Origin, tx.GetNonce())
+			contractAddress = crypto.CreateAddress(evm.TxContext().Origin, tx.GetNonce())
 		}
-		// Set the receipt logs and create a bloom for filtering
-		receipt.Logs = ibs.GetLogs(tx.Hash())
 
-		// [zkevm] - ignore the bloom at this point due to a bug in zknode where the bloom is not included
-		// in the block during execution
-		//receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-
-		receipt.BlockNumber = header.Number
-		receipt.TransactionIndex = uint(ibs.TxIndex())
+		// by the tx.
+		receipt = &types.Receipt{
+			Type:              tx.Type(),
+			CumulativeGasUsed: result.UsedGas,
+			TxHash:            tx.Hash(),
+			GasUsed:           result.UsedGas,
+			Status:            status,
+			ContractAddress:   contractAddress,
+			Logs:              ibs.GetLogs(tx.Hash()),
+			BlockNumber:       header.Number,
+			TransactionIndex:  uint(ibs.TxIndex()),
+		}
 	}
 
 	return receipt, result, err
@@ -112,7 +112,7 @@ func applyTransaction_zkevm(config *chain.Config, engine consensus.EngineReader,
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction_zkevm(config *chain.Config, blockHashFunc func(n uint64) libcommon.Hash, engine consensus.EngineReader, author *libcommon.Address, gp *GasPool, ibs *state.IntraBlockState, stateWriter state.StateWriter, header *types.Header, tx types.Transaction, usedGas *uint64, cfg vm.Config, excessDataGas *big.Int, effectiveGasPricePercentage uint8) (*types.Receipt, *ExecutionResult, error) {
+func ApplyTransaction_zkevm(config *chain.Config, blockHashFunc func(n uint64) libcommon.Hash, engine consensus.EngineReader, author *libcommon.Address, gp *GasPool, ibs *state.IntraBlockState, stateWriter state.StateWriter, header *types.Header, tx types.Transaction, cfg vm.Config, excessDataGas *big.Int, effectiveGasPricePercentage uint8) (*types.Receipt, *ExecutionResult, error) {
 	// Create a new context to be used in the EVM environment
 
 	// Add addresses to access list if applicable
@@ -122,5 +122,5 @@ func ApplyTransaction_zkevm(config *chain.Config, blockHashFunc func(n uint64) l
 	blockContext := NewEVMBlockContext(header, blockHashFunc, engine, author, excessDataGas)
 	vmenv := vm.NewEVM(blockContext, evmtypes.TxContext{}, ibs, config, cfg)
 
-	return applyTransaction_zkevm(config, engine, gp, ibs, stateWriter, header, tx, usedGas, vmenv, cfg, effectiveGasPricePercentage)
+	return applyTransaction_zkevm(config, engine, gp, ibs, stateWriter, header, tx, vmenv, cfg, effectiveGasPricePercentage)
 }

@@ -135,7 +135,7 @@ func ExecuteBlockEphemerallyZk(
 
 	noop := state.NewNoopWriter()
 	logIndex := int64(0)
-	usedGas := new(uint64)
+	usedGas := uint64(0)
 
 	for txIndex, tx := range blockTransactions {
 		ibs.Prepare(tx.Hash(), block.Hash(), txIndex)
@@ -156,7 +156,7 @@ func ExecuteBlockEphemerallyZk(
 			return nil, err
 		}
 
-		receipt, execResult, err := ApplyTransaction_zkevm(chainConfig, blockHashFunc, engine, nil, gp, ibs, noop, header, tx, usedGas, *vmConfig, excessDataGas, effectiveGasPricePercentage)
+		receipt, execResult, err := ApplyTransaction_zkevm(chainConfig, blockHashFunc, engine, nil, gp, ibs, noop, header, tx, *vmConfig, excessDataGas, effectiveGasPricePercentage)
 		if err != nil {
 			return nil, err
 		}
@@ -167,6 +167,9 @@ func ExecuteBlockEphemerallyZk(
 
 			vmConfig.Tracer = nil
 		}
+
+		//add tx used gas to total for block
+		usedGas += execResult.UsedGas
 
 		//TODO: remove this after bug is fixed
 		localReceipt := *receipt
@@ -179,7 +182,15 @@ func ExecuteBlockEphemerallyZk(
 		if err != nil {
 			return nil, err
 		}
-		receipt.PostState = intermediateState.Bytes()
+
+		// the stateroot in the transactions that comes from the datastream
+		// is the one after smart contract writes so it can't be used
+		// but since pre forkid7 blocks have 1 tx only, we can use the block root
+		if chainConfig.IsForkID7Etrog(blockNum) {
+			receipt.PostState = intermediateState.Bytes()
+		} else {
+			receipt.PostState = header.Root.Bytes()
+		}
 
 		if err != nil {
 			if !vmConfig.StatelessExec {
@@ -218,7 +229,7 @@ func ExecuteBlockEphemerallyZk(
 				txIndex,
 				&localReceipt,
 				logIndex,
-				*usedGas,
+				usedGas,
 				effectiveGasPricePercentage,
 			)
 			if err != nil {
@@ -234,7 +245,7 @@ func ExecuteBlockEphemerallyZk(
 	var l2InfoRoot libcommon.Hash
 	if chainConfig.IsForkID7Etrog(blockNum) {
 		// [zkevm] - set the block info tree root
-		root, err := blockInfoTree.SetBlockGasUsed(*usedGas)
+		root, err := blockInfoTree.SetBlockGasUsed(usedGas)
 		if err != nil {
 			return nil, err
 		}
@@ -276,7 +287,7 @@ func ExecuteBlockEphemerallyZk(
 		LogsHash:    rlpHash(blockLogs),
 		Receipts:    receipts,
 		Difficulty:  (*math.HexOrDecimal256)(header.Difficulty),
-		GasUsed:     math.HexOrDecimal64(*usedGas),
+		GasUsed:     math.HexOrDecimal64(usedGas),
 		Rejected:    rejectedTxs,
 	}
 
