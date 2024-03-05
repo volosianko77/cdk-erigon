@@ -93,7 +93,8 @@ func applyTransaction_zkevm(config *chain.Config, engine consensus.EngineReader,
 
 		// by the tx.
 		receipt = &types.Receipt{
-			Type:              tx.Type(),
+			Type: tx.Type(),
+			//[hack] - bug on Hermez side that comulative gas is same as tx gas used
 			CumulativeGasUsed: result.UsedGas,
 			TxHash:            tx.Hash(),
 			GasUsed:           result.UsedGas,

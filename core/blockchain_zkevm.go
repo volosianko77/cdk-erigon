@@ -171,7 +171,8 @@ func ExecuteBlockEphemerallyZk(
 		//add tx used gas to total for block
 		usedGas += execResult.UsedGas
 
-		//TODO: remove this after bug is fixed
+		//[hack] bug on Hermez side that when UnsupportedPrecompile error is returned the receipt status is still success
+		// TODO: remove this after bug is fixed
 		localReceipt := *receipt
 		if execResult.Err == vm.ErrUnsupportedPrecompile {
 			localReceipt.Status = 1
