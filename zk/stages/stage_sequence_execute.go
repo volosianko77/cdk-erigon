@@ -285,7 +285,7 @@ LOOP:
 			sinceLastTx := time.Now().Sub(lastTxTime)
 			if len(transactions) > 0 {
 				lastTxTime = time.Now()
-			} else if len(addedTransactions) > 0 && sinceLastTx > 250*time.Millisecond {
+			} else if len(addedTransactions) > 0 && sinceLastTx > 10*time.Millisecond {
 				log.Info(fmt.Sprintf("[%s] No new transactions, closing block at %v transactions", logPrefix, len(addedTransactions)))
 				break LOOP
 			}
