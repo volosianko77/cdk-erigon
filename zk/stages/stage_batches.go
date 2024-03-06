@@ -96,6 +96,7 @@ func SpawnStageBatches(
 	}
 	defer log.Info(fmt.Sprintf("[%s] Finished Batches stage", logPrefix))
 
+	createdTx := false
 	if tx == nil {
 		log.Debug(fmt.Sprintf("[%s] batches: no tx provided, creating a new one", logPrefix))
 		var err error
@@ -104,6 +105,7 @@ func SpawnStageBatches(
 			return fmt.Errorf("failed to open tx, %w", err)
 		}
 		defer tx.Rollback()
+		createdTx = true
 	}
 
 	eriDb := erigon_db.NewErigonDb(tx)
@@ -303,8 +305,8 @@ func SpawnStageBatches(
 		return fmt.Errorf("save stage progress error: %v", err)
 	}
 
-	if firstCycle {
-		log.Debug(fmt.Sprintf("[%s] batches: first cycle, committing tx", logPrefix))
+	if createdTx {
+		log.Debug(fmt.Sprintf("[%s] batches: created fresh tx, committing tx", logPrefix))
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("failed to commit tx, %w", err)
 		}
