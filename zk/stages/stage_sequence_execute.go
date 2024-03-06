@@ -241,11 +241,12 @@ func SpawnSequencingStage(
 
 	// start waiting for a new transaction to arrive
 	ticker := time.NewTicker(10 * time.Second)
+	blockImmediateSeal := time.NewTicker(50 * time.Millisecond)
 	log.Info(fmt.Sprintf("[%s] Waiting for txs from the pool...", logPrefix))
 	var addedTransactions []types.Transaction
 	var addedReceipts []*types.Receipt
 	yielded := mapset.NewSet[[32]byte]()
-	lastTxTime := time.Now()
+	lastTransactionCount := 0
 
 	// start to wait for transactions to come in from the pool and attempt to add them to the current batch.  Once we detect a counter
 	// overflow we revert the IBS back to the previous snapshot and don't add the transaction/receipt to the collection that will
@@ -255,6 +256,12 @@ LOOP:
 		select {
 		case <-ticker.C:
 			log.Info(fmt.Sprintf("[%s] Waiting some more for txs from the pool...", logPrefix))
+		case <-blockImmediateSeal.C:
+			// only kill the loop if we have actually processed some transactions otherwise carry on waiting
+			if lastTransactionCount > 0 {
+				log.Info(fmt.Sprintf("[%s] closing block at %v transactions", logPrefix, lastTransactionCount))
+				break LOOP
+			}
 		default:
 			cfg.txPool.LockFlusher()
 			transactions, err := getNextTransactions(cfg, executionAt, yielded)
@@ -262,6 +269,10 @@ LOOP:
 				return err
 			}
 			cfg.txPool.UnlockFlusher()
+
+			if lastTransactionCount == 0 && len(transactions) > 0 {
+				log.Info(fmt.Sprintf("[%s] found transaction to begin processing...", logPrefix))
+			}
 
 			for _, transaction := range transactions {
 				snap := ibs.Snapshot()
@@ -278,16 +289,7 @@ LOOP:
 
 				addedTransactions = append(addedTransactions, transaction)
 				addedReceipts = append(addedReceipts, receipt)
-			}
-
-			// if there were no transactions in this check, and we have some transactions to process, and we've waited long enough for
-			// more to arrive then close the batch
-			sinceLastTx := time.Now().Sub(lastTxTime)
-			if len(transactions) > 0 {
-				lastTxTime = time.Now()
-			} else if len(addedTransactions) > 0 && sinceLastTx > 10*time.Millisecond {
-				log.Info(fmt.Sprintf("[%s] No new transactions, closing block at %v transactions", logPrefix, len(addedTransactions)))
-				break LOOP
+				lastTransactionCount = len(addedTransactions)
 			}
 		}
 	}
