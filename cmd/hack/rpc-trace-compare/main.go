@@ -90,6 +90,9 @@ func main() {
 			log.Warn("traces don't match", "txHash", txHash)
 		}
 		log.Info("----------------------------------------------")
+		// if err = os.Remove("./traces/" + traceFile); err != nil {
+		// 	fmt.Println(err)
+		// }
 	}
 }
 
