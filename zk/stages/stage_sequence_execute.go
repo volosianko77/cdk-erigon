@@ -241,7 +241,12 @@ func SpawnSequencingStage(
 
 	// start waiting for a new transaction to arrive
 	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	// used to keep block sealing at a regular cadence
 	blockImmediateSeal := time.NewTicker(50 * time.Millisecond)
+	defer blockImmediateSeal.Stop()
+
 	log.Info(fmt.Sprintf("[%s] Waiting for txs from the pool...", logPrefix))
 	var addedTransactions []types.Transaction
 	var addedReceipts []*types.Receipt
