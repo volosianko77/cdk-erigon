@@ -322,10 +322,13 @@ LOOP:
 }
 
 func getNextTransactions(cfg SequenceBlockCfg, executionAt uint64, alreadyYielded mapset.Set[[32]byte]) ([]types.Transaction, error) {
+	const (
+		loopSleepTime = 500 * time.Microsecond
+		killTime      = 50 * time.Millisecond
+	)
 	var transactions []types.Transaction
-	var err error
-	var count int
-	killer := time.NewTicker(50 * time.Millisecond)
+	killer := time.NewTimer(killTime)
+	defer killer.Stop()
 LOOP:
 	for {
 		// ensure we don't spin forever looking for transactions, attempt for a while then exit up to the caller
@@ -334,31 +337,30 @@ LOOP:
 			break LOOP
 		default:
 		}
-		if err := cfg.txPoolDb.View(context.Background(), func(poolTx kv.Tx) error {
+		err := cfg.txPoolDb.View(context.Background(), func(poolTx kv.Tx) error {
 			slots := types2.TxsRlp{}
-			_, count, err = cfg.txPool.YieldBest(yieldSize, &slots, poolTx, executionAt, blockGasLimit, alreadyYielded)
-			if err != nil {
-				return err
+			_, _, inErr := cfg.txPool.YieldBest(yieldSize, &slots, poolTx, executionAt, blockGasLimit, alreadyYielded)
+			if inErr != nil {
+				return inErr
 			}
-			if count == 0 {
-				time.Sleep(500 * time.Microsecond)
-				return nil
-			}
-			transactions, err = extractTransactionsFromSlot(slots)
-			if err != nil {
-				return err
+			transactions, inErr = extractTransactionsFromSlot(slots)
+			if inErr != nil {
+				return inErr
 			}
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, err
 		}
 
 		if len(transactions) > 0 {
 			break
+		} else {
+			time.Sleep(loopSleepTime)
 		}
 	}
 
-	return transactions, err
+	return transactions, nil
 }
 
 const (
