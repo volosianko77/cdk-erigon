@@ -36,6 +36,7 @@ import (
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/smt/pkg/blockinfo"
 	txTypes "github.com/ledgerwatch/erigon/zk/tx"
+	"errors"
 )
 
 // ExecuteBlockEphemerally runs a block from provided stateReader and
@@ -165,12 +166,6 @@ func ExecuteBlockEphemerallyZk(
 			vmConfig.Tracer = nil
 		}
 
-		//TODO: remove this after bug is fixed
-		localReceipt := *receipt
-		if execResult.Err == vm.ErrUnsupportedPrecompile {
-			localReceipt.Status = 1
-		}
-
 		if err != nil {
 			if !vmConfig.StatelessExec {
 				return nil, fmt.Errorf("could not apply tx %d from block %d [%v]: %w", txIndex, block.NumberU64(), tx.Hash().Hex(), err)
@@ -182,6 +177,14 @@ func ExecuteBlockEphemerallyZk(
 				receipts = append(receipts, receipt)
 			}
 		}
+
+		//TODO: remove this after bug is fixed
+		if receipt != nil {
+			if errors.Is(execResult.Err, vm.ErrUnsupportedPrecompile) {
+				receipt.Status = 1
+			}
+		}
+
 		if !chainConfig.IsForkID7Etrog(block.NumberU64()) {
 			ibs.ScalableSetSmtRootHash(roHermezDb)
 		}
@@ -206,7 +209,7 @@ func ExecuteBlockEphemerallyZk(
 			_, err = blockInfoTree.SetBlockTx(
 				&l2TxHash,
 				txIndex,
-				&localReceipt,
+				receipt,
 				logIndex,
 				*usedGas,
 				effectiveGasPricePercentage,
