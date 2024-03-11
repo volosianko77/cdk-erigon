@@ -64,8 +64,6 @@ const (
 	totalVirtualCounterSmtLevel = 80 // todo [zkevm] this should be read from the db
 
 	etrogForkId = 8 // todo [zkevm] we need a better way of handling this
-
-	yieldSize = 100 // arbitrary number defining how many transactions to yield from the pool at once
 )
 
 var (
@@ -244,7 +242,7 @@ func SpawnSequencingStage(
 	defer ticker.Stop()
 
 	// used to keep block sealing at a regular cadence
-	blockImmediateSeal := time.NewTicker(50 * time.Millisecond)
+	blockImmediateSeal := time.NewTicker(time.Duration(cfg.zk.SequencerImmediateSealTime) * time.Millisecond)
 	defer blockImmediateSeal.Stop()
 
 	log.Info(fmt.Sprintf("[%s] Waiting for txs from the pool...", logPrefix))
@@ -327,8 +325,8 @@ LOOP:
 }
 
 func getNextTransactions(cfg SequenceBlockCfg, executionAt uint64, alreadyYielded mapset.Set[[32]byte]) ([]types.Transaction, error) {
-	const (
-		loopSleepTime = 500 * time.Microsecond
+	var (
+		loopSleepTime = time.Duration(cfg.zk.SequencerYieldPause) * time.Microsecond
 		killTime      = 50 * time.Millisecond
 	)
 	var transactions []types.Transaction
@@ -344,7 +342,7 @@ LOOP:
 		}
 		err := cfg.txPoolDb.View(context.Background(), func(poolTx kv.Tx) error {
 			slots := types2.TxsRlp{}
-			_, _, inErr := cfg.txPool.YieldBest(yieldSize, &slots, poolTx, executionAt, blockGasLimit, alreadyYielded)
+			_, _, inErr := cfg.txPool.YieldBest(uint16(cfg.zk.SequencerYieldSize), &slots, poolTx, executionAt, blockGasLimit, alreadyYielded)
 			if inErr != nil {
 				return inErr
 			}

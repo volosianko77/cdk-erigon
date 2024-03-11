@@ -22,6 +22,9 @@ type Zk struct {
 	SequencerAddress            common.Address
 	ExecutorUrls                []string
 	ExecutorStrictMode          bool
+	SequencerYieldSize          uint64
+	SequencerYieldPause         uint64
+	SequencerImmediateSealTime  uint64
 
 	RebuildTreeAfter uint64
 }

@@ -186,4 +186,7 @@ var DefaultFlags = []cli.Flag{
 	&utils.ExecutorStrictMode,
 	&utils.DataStreamHost,
 	&utils.DataStreamPort,
+	&utils.SequencerYieldSize,
+	&utils.SequencerYieldPause,
+	&utils.SequencerImmediateSealTime,
 }
