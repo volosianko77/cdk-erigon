@@ -230,6 +230,13 @@ Loop:
 	if err = s.Update(batch, stageProgress); err != nil {
 		return err
 	}
+
+	// we need to artificially update the headers stage here as well to ensure that notifications
+	// can fire at the end of the stage loop and inform RPC subscriptions of new blocks for example
+	if err = stages.SaveStageProgress(tx, stages.Headers, stageProgress); err != nil {
+		return err
+	}
+
 	if err = batch.Commit(); err != nil {
 		return fmt.Errorf("batch commit: %w", err)
 	}
@@ -273,14 +280,14 @@ func getPreexecuteValues(cfg ExecuteBlockCfg, ctx context.Context, tx kv.RwTx, b
 }
 
 func postExecuteCommitValues(
-	cfg ExecuteBlockCfg,
-	tx kv.RwTx,
-	eridb *erigon_db.ErigonDb,
-	batch ethdb.DbWithPendingMutations,
-	preExecuteHeaderHash common.Hash,
-	block *types.Block,
-	header *types.Header,
-	senders []common.Address,
+    cfg ExecuteBlockCfg,
+    tx kv.RwTx,
+    eridb *erigon_db.ErigonDb,
+    batch ethdb.DbWithPendingMutations,
+    preExecuteHeaderHash common.Hash,
+    block *types.Block,
+    header *types.Header,
+    senders []common.Address,
 ) error {
 	// TODO: how can we store this data right first time?  Or mop up old data as we're currently duping storage
 	/*
@@ -336,19 +343,19 @@ func postExecuteCommitValues(
 }
 
 func executeBlockZk(
-	block *types.Block,
-	prevBlockHash *common.Hash,
-	header *types.Header,
-	tx kv.RwTx,
-	batch ethdb.Database,
-	cfg ExecuteBlockCfg,
-	vmConfig vm.Config, // emit copy, because will modify it
-	writeChangesets bool,
-	writeReceipts bool,
-	writeCallTraces bool,
-	initialCycle bool,
-	stateStream bool,
-	roHermezDb state.ReadOnlyHermezDb,
+    block *types.Block,
+    prevBlockHash *common.Hash,
+    header *types.Header,
+    tx kv.RwTx,
+    batch ethdb.Database,
+    cfg ExecuteBlockCfg,
+    vmConfig vm.Config, // emit copy, because will modify it
+    writeChangesets bool,
+    writeReceipts bool,
+    writeCallTraces bool,
+    initialCycle bool,
+    stateStream bool,
+    roHermezDb state.ReadOnlyHermezDb,
 ) error {
 	blockNum := block.NumberU64()
 
