@@ -46,6 +46,7 @@ import (
 	"github.com/ledgerwatch/erigon/turbo/shards"
 	"github.com/ledgerwatch/erigon/zk/erigon_db"
 	"github.com/ledgerwatch/erigon/zk/hermez_db"
+	"github.com/ledgerwatch/erigon/zk/legacy_executor_verifier"
 	"github.com/ledgerwatch/erigon/zk/tx"
 	"github.com/ledgerwatch/erigon/zk/txpool"
 	zktypes "github.com/ledgerwatch/erigon/zk/types"
@@ -64,8 +65,6 @@ const (
 	totalVirtualCounterSmtLevel = 80 // todo [zkevm] this should be read from the db
 
 	etrogForkId = 7 // todo [zkevm] we need a better way of handling this
-
-	yieldSize = 100 // arbitrary number defining how many transactions to yield from the pool at once
 )
 
 var (
@@ -104,6 +103,9 @@ type SequenceBlockCfg struct {
 
 	txPool   *txpool.TxPool
 	txPoolDb kv.RwDB
+
+	verifier *legacy_executor_verifier.LegacyExecutorVerifier
+	limbo    *legacy_executor_verifier.Limbo
 }
 
 func StageSequenceBlocksCfg(
@@ -128,6 +130,8 @@ func StageSequenceBlocksCfg(
 
 	txPool *txpool.TxPool,
 	txPoolDb kv.RwDB,
+	verifier *legacy_executor_verifier.LegacyExecutorVerifier,
+	limbo *legacy_executor_verifier.Limbo,
 ) SequenceBlockCfg {
 	return SequenceBlockCfg{
 		db:            db,
@@ -149,6 +153,8 @@ func StageSequenceBlocksCfg(
 		zk:            zk,
 		txPool:        txPool,
 		txPoolDb:      txPoolDb,
+		verifier:      verifier,
+		limbo:         limbo,
 	}
 }
 
@@ -165,6 +171,27 @@ func SpawnSequencingStage(
 	logPrefix := s.LogPrefix()
 	log.Info(fmt.Sprintf("[%s] Starting sequencing stage", logPrefix))
 	defer log.Info(fmt.Sprintf("[%s] Finished sequencing stage", logPrefix))
+
+	startedInLimbo := false
+
+	limboMode, _ := cfg.limbo.CheckLimboMode()
+	if limboMode {
+		log.Info(fmt.Sprintf("[%s] Limbo mode detected, skipping sequencing", logPrefix))
+		// TODO: improve this - we should enter limbo mode, then start going tx by tx and identify the 'naughty' tx
+		// figure out which stages should just return when we're in this mode - we have everything we need from the txpool
+		startedInLimbo = true
+	}
+
+	if startedInLimbo {
+		log.Info(fmt.Sprintf("[%s] Limbo mode detected, sequencing one by one", logPrefix))
+
+		// ensure to stop the verifier from processing any more requests (/)
+		// do the flow below, but 1 tx at a time (yield 1) -> yield only 1 tx from the pool (/)
+		// execute the verifier directly and synchronously ()
+		// if the verifier fails, we need to remove the tx from the pool and then continue ()
+		// exit limbo mode leaving the other txs in the pool - maybe we have to put some back?
+		// - txs recently yielded but not in verified batches should be held in the checker/txpool somewhere - so that we can later process them through and remove the 'bad one'
+	}
 
 	freshTx := tx == nil
 	if freshTx {
@@ -259,14 +286,35 @@ LOOP:
 		case <-ticker.C:
 			log.Info(fmt.Sprintf("[%s] Waiting some more for txs from the pool...", logPrefix))
 		default:
-			cfg.txPool.LockFlusher()
-			transactions, err := getNextTransactions(cfg, executionAt, yielded)
-			if err != nil {
-				return err
+			var transactions []types.Transaction
+			// [limbo] -
+			if startedInLimbo {
+				// get all the txs we need to process 1 by 1
+				transactions = cfg.verifier.GetTxs()
+			} else {
+				cfg.txPool.LockFlusher()
+				transactions, err = getNextTransactions(cfg, executionAt, yielded, startedInLimbo)
+				if err != nil {
+					return err
+				}
+				cfg.txPool.UnlockFlusher()
+				// [limbo] - add txs so we can put them back in the pool if needs be
+				cfg.verifier.AddTxs(transactions)
 			}
-			cfg.txPool.UnlockFlusher()
+
+			if startedInLimbo {
+				log.Warn(fmt.Sprintf("[%s] Limbo mode detected, processing 1 tx at a time", logPrefix), "tx-count", len(transactions))
+			}
 
 			for _, transaction := range transactions {
+				// [limbo] - break from processing txs as soon as verification failure occurs
+				if !startedInLimbo {
+					enteredLimbo, _ := cfg.limbo.CheckLimboMode()
+					if enteredLimbo {
+						log.Info(fmt.Sprintf("[%s] Limbo mode entered whilst executing, skipping sequencing", logPrefix))
+						break LOOP
+					}
+				}
 				snap := ibs.Snapshot()
 				receipt, overflow, err := attemptAddTransaction(tx, cfg, batchCounters, header, parentBlock.Header(), transaction, ibs, hermezDb)
 				if err != nil {
@@ -322,11 +370,16 @@ LOOP:
 	return nil
 }
 
-func getNextTransactions(cfg SequenceBlockCfg, executionAt uint64, alreadyYielded mapset.Set[[32]byte]) ([]types.Transaction, error) {
+func getNextTransactions(cfg SequenceBlockCfg, executionAt uint64, alreadyYielded mapset.Set[[32]byte], startedInLimbo bool) ([]types.Transaction, error) {
 	var transactions []types.Transaction
 	var err error
 	var count int
 	killer := time.NewTicker(50 * time.Millisecond)
+
+	yieldSize := uint16(100)
+	if startedInLimbo {
+		yieldSize = 1
+	}
 LOOP:
 	for {
 		// ensure we don't spin forever looking for transactions, attempt for a while then exit up to the caller
