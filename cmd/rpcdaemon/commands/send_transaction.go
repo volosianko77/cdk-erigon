@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/common/hexutility"
-	txPoolProto "github.com/ledgerwatch/erigon-lib/gointerfaces/txpool"
+	"github.com/gateway-fm/cdk-erigon-lib/common"
+	"github.com/gateway-fm/cdk-erigon-lib/common/hexutility"
+	txPoolProto "github.com/gateway-fm/cdk-erigon-lib/gointerfaces/txpool"
 	"github.com/ledgerwatch/log/v3"
 	"math/big"
 

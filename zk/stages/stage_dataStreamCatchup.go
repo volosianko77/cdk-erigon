@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/0xPolygonHermez/zkevm-data-streamer/datastreamer"
-	"github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/gateway-fm/cdk-erigon-lib/common"
+	"github.com/gateway-fm/cdk-erigon-lib/kv"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	eritypes "github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/eth/stagedsync"
@@ -33,10 +33,10 @@ func StageDataStreamCatchupCfg(stream *datastreamer.StreamServer, db kv.RwDB, ch
 }
 
 func SpawnStageDataStreamCatchup(
-    s *stagedsync.StageState,
-    ctx context.Context,
-    tx kv.RwTx,
-    cfg DataStreamCatchupCfg,
+	s *stagedsync.StageState,
+	ctx context.Context,
+	tx kv.RwTx,
+	cfg DataStreamCatchupCfg,
 ) error {
 
 	logPrefix := s.LogPrefix()
@@ -189,10 +189,10 @@ func preLoadBatchesToBlocks(tx kv.RwTx) (map[uint64][]uint64, error) {
 }
 
 func writeGenesisToStream(
-    genesis *eritypes.Block,
-    reader *hermez_db.HermezDbReader,
-    stream *datastreamer.StreamServer,
-    srv *server.DataStreamServer,
+	genesis *eritypes.Block,
+	reader *hermez_db.HermezDbReader,
+	stream *datastreamer.StreamServer,
+	srv *server.DataStreamServer,
 ) error {
 
 	batch, err := reader.GetBatchNoByL2Block(0)

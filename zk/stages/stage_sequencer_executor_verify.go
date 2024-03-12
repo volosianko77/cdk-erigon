@@ -2,7 +2,7 @@ package stages
 
 import (
 	"context"
-	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/gateway-fm/cdk-erigon-lib/kv"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/eth/stagedsync"
 	"github.com/ledgerwatch/erigon/eth/stagedsync/stages"
@@ -19,8 +19,8 @@ type SequencerExecutorVerifyCfg struct {
 }
 
 func StageSequencerExecutorVerifyCfg(
-    db kv.RwDB,
-    verifier *legacy_executor_verifier.LegacyExecutorVerifier,
+	db kv.RwDB,
+	verifier *legacy_executor_verifier.LegacyExecutorVerifier,
 ) SequencerExecutorVerifyCfg {
 	return SequencerExecutorVerifyCfg{
 		db:       db,
@@ -29,13 +29,13 @@ func StageSequencerExecutorVerifyCfg(
 }
 
 func SpawnSequencerExecutorVerifyStage(
-    s *stagedsync.StageState,
-    u stagedsync.Unwinder,
-    tx kv.RwTx,
-    ctx context.Context,
-    cfg SequencerExecutorVerifyCfg,
-    initialCycle bool,
-    quiet bool,
+	s *stagedsync.StageState,
+	u stagedsync.Unwinder,
+	tx kv.RwTx,
+	ctx context.Context,
+	cfg SequencerExecutorVerifyCfg,
+	initialCycle bool,
+	quiet bool,
 ) error {
 	var err error
 	freshTx := tx == nil
@@ -156,22 +156,22 @@ func handleLatestResponses(tx kv.RwTx, verifier *legacy_executor_verifier.Legacy
 }
 
 func UnwindSequencerExecutorVerifyStage(
-    u *stagedsync.UnwindState,
-    s *stagedsync.StageState,
-    tx kv.RwTx,
-    ctx context.Context,
-    cfg SequencerExecutorVerifyCfg,
-    initialCycle bool,
+	u *stagedsync.UnwindState,
+	s *stagedsync.StageState,
+	tx kv.RwTx,
+	ctx context.Context,
+	cfg SequencerExecutorVerifyCfg,
+	initialCycle bool,
 ) error {
 	return nil
 }
 
 func PruneSequencerExecutorVerifyStage(
-    s *stagedsync.PruneState,
-    tx kv.RwTx,
-    cfg SequencerExecutorVerifyCfg,
-    ctx context.Context,
-    initialCycle bool,
+	s *stagedsync.PruneState,
+	tx kv.RwTx,
+	cfg SequencerExecutorVerifyCfg,
+	ctx context.Context,
+	initialCycle bool,
 ) error {
 	return nil
 }

@@ -1,6 +1,6 @@
 package ethconfig
 
-import "github.com/ledgerwatch/erigon-lib/common"
+import "github.com/gateway-fm/cdk-erigon-lib/common"
 
 type Zk struct {
 	L2ChainId                   uint64

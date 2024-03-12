@@ -27,13 +27,13 @@ import (
 	"strings"
 
 	"github.com/c2h5oh/datasize"
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/common/cmp"
-	"github.com/ledgerwatch/erigon-lib/common/datadir"
-	"github.com/ledgerwatch/erigon-lib/common/metrics"
-	downloadercfg2 "github.com/ledgerwatch/erigon-lib/downloader/downloadercfg"
-	"github.com/ledgerwatch/erigon-lib/kv"
-	"github.com/ledgerwatch/erigon-lib/txpool/txpoolcfg"
+	libcommon "github.com/gateway-fm/cdk-erigon-lib/common"
+	"github.com/gateway-fm/cdk-erigon-lib/common/cmp"
+	"github.com/gateway-fm/cdk-erigon-lib/common/datadir"
+	"github.com/gateway-fm/cdk-erigon-lib/common/metrics"
+	downloadercfg2 "github.com/gateway-fm/cdk-erigon-lib/downloader/downloadercfg"
+	"github.com/gateway-fm/cdk-erigon-lib/kv"
+	"github.com/gateway-fm/cdk-erigon-lib/txpool/txpoolcfg"
 	common2 "github.com/ledgerwatch/erigon/common"
 	"github.com/ledgerwatch/erigon/consensus/ethash/ethashcfg"
 	"github.com/ledgerwatch/erigon/eth/gasprice/gaspricecfg"
@@ -1020,19 +1020,19 @@ func ParseNodesFromURLs(urls []string) ([]*enode.Node, error) {
 // NewP2PConfig
 //   - doesn't setup bootnodes - they will set when genesisHash will know
 func NewP2PConfig(
-    nodiscover bool,
-    dirs datadir.Dirs,
-    netRestrict string,
-    natSetting string,
-    maxPeers int,
-    maxPendPeers int,
-    nodeName string,
-    staticPeers []string,
-    trustedPeers []string,
-    port uint,
-    protocol uint,
-    allowedPorts []uint,
-    metricsEnabled bool,
+	nodiscover bool,
+	dirs datadir.Dirs,
+	netRestrict string,
+	natSetting string,
+	maxPeers int,
+	maxPendPeers int,
+	nodeName string,
+	staticPeers []string,
+	trustedPeers []string,
+	port uint,
+	protocol uint,
+	allowedPorts []uint,
+	metricsEnabled bool,
 ) (*p2p.Config, error) {
 	var enodeDBPath string
 	switch protocol {

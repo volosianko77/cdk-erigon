@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/c2h5oh/datasize"
-	"github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/common/cmp"
-	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/gateway-fm/cdk-erigon-lib/common"
+	"github.com/gateway-fm/cdk-erigon-lib/common/cmp"
+	"github.com/gateway-fm/cdk-erigon-lib/kv"
 	"github.com/ledgerwatch/log/v3"
 
 	"github.com/ledgerwatch/erigon/core"
@@ -280,14 +280,14 @@ func getPreexecuteValues(cfg ExecuteBlockCfg, ctx context.Context, tx kv.RwTx, b
 }
 
 func postExecuteCommitValues(
-    cfg ExecuteBlockCfg,
-    tx kv.RwTx,
-    eridb *erigon_db.ErigonDb,
-    batch ethdb.DbWithPendingMutations,
-    preExecuteHeaderHash common.Hash,
-    block *types.Block,
-    header *types.Header,
-    senders []common.Address,
+	cfg ExecuteBlockCfg,
+	tx kv.RwTx,
+	eridb *erigon_db.ErigonDb,
+	batch ethdb.DbWithPendingMutations,
+	preExecuteHeaderHash common.Hash,
+	block *types.Block,
+	header *types.Header,
+	senders []common.Address,
 ) error {
 	// TODO: how can we store this data right first time?  Or mop up old data as we're currently duping storage
 	/*
@@ -343,19 +343,19 @@ func postExecuteCommitValues(
 }
 
 func executeBlockZk(
-    block *types.Block,
-    prevBlockHash *common.Hash,
-    header *types.Header,
-    tx kv.RwTx,
-    batch ethdb.Database,
-    cfg ExecuteBlockCfg,
-    vmConfig vm.Config, // emit copy, because will modify it
-    writeChangesets bool,
-    writeReceipts bool,
-    writeCallTraces bool,
-    initialCycle bool,
-    stateStream bool,
-    roHermezDb state.ReadOnlyHermezDb,
+	block *types.Block,
+	prevBlockHash *common.Hash,
+	header *types.Header,
+	tx kv.RwTx,
+	batch ethdb.Database,
+	cfg ExecuteBlockCfg,
+	vmConfig vm.Config, // emit copy, because will modify it
+	writeChangesets bool,
+	writeReceipts bool,
+	writeCallTraces bool,
+	initialCycle bool,
+	stateStream bool,
+	roHermezDb state.ReadOnlyHermezDb,
 ) error {
 	blockNum := block.NumberU64()
 

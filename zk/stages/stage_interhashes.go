@@ -3,11 +3,11 @@ package stages
 import (
 	"fmt"
 
-	"github.com/ledgerwatch/erigon-lib/common"
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/common/length"
-	"github.com/ledgerwatch/erigon-lib/kv"
-	"github.com/ledgerwatch/erigon-lib/state"
+	"github.com/gateway-fm/cdk-erigon-lib/common"
+	libcommon "github.com/gateway-fm/cdk-erigon-lib/common"
+	"github.com/gateway-fm/cdk-erigon-lib/common/length"
+	"github.com/gateway-fm/cdk-erigon-lib/kv"
+	"github.com/gateway-fm/cdk-erigon-lib/state"
 	state2 "github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/types"
 	db2 "github.com/ledgerwatch/erigon/smt/pkg/db"
@@ -56,14 +56,14 @@ type ZkInterHashesCfg struct {
 }
 
 func StageZkInterHashesCfg(
-    db kv.RwDB,
-    checkRoot, saveNewHashesToDB, badBlockHalt bool,
-    tmpDir string,
-    blockReader services.FullBlockReader,
-    hd *headerdownload.HeaderDownload,
-    historyV3 bool,
-    agg *state.AggregatorV3,
-    zk *ethconfig.Zk,
+	db kv.RwDB,
+	checkRoot, saveNewHashesToDB, badBlockHalt bool,
+	tmpDir string,
+	blockReader services.FullBlockReader,
+	hd *headerdownload.HeaderDownload,
+	historyV3 bool,
+	agg *state.AggregatorV3,
+	zk *ethconfig.Zk,
 ) ZkInterHashesCfg {
 	return ZkInterHashesCfg{
 		db:                db,

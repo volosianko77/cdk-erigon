@@ -3,8 +3,8 @@ package legacy_executor_verifier
 import (
 	"context"
 	"encoding/hex"
-	"github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/gateway-fm/cdk-erigon-lib/common"
+	"github.com/gateway-fm/cdk-erigon-lib/kv"
 	"github.com/ledgerwatch/erigon/chain"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
@@ -62,12 +62,12 @@ type LegacyExecutorVerifier struct {
 }
 
 func NewLegacyExecutorVerifier(
-    cfg ethconfig.Zk,
-    executors []ILegacyExecutor,
-    chainCfg *chain.Config,
-    db kv.RwDB,
-    witnessGenerator WitnessGenerator,
-    l1Syncer *syncer.L1Syncer,
+	cfg ethconfig.Zk,
+	executors []ILegacyExecutor,
+	chainCfg *chain.Config,
+	db kv.RwDB,
+	witnessGenerator WitnessGenerator,
+	l1Syncer *syncer.L1Syncer,
 ) *LegacyExecutorVerifier {
 	executorLocks := make([]*sync.Mutex, len(executors))
 	for i := range executorLocks {
