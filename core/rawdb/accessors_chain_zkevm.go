@@ -7,6 +7,7 @@ import (
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/hexutility"
 	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/ledgerwatch/erigon/common/dbutils"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/rlp"
 )
@@ -99,6 +100,29 @@ func GetBodyTransactions(tx kv.RwTx, fromBlockNum, toBlockNum uint64) (*[]types.
 func DeleteForkchoiceFinalized(db kv.Deleter) error {
 	if err := db.Delete(kv.LastForkchoice, []byte("finalizedBlockHash")); err != nil {
 		return fmt.Errorf("failed to delete LastForkchoice: %w", err)
+	}
+
+	return nil
+}
+
+// WriteHeader stores a block header into the database and also stores the hash-
+// to-number mapping.
+func WriteHeader_zkEvm(db kv.Putter, header *types.Header) error {
+	var (
+		hash    = header.Hash()
+		number  = header.Number.Uint64()
+		encoded = hexutility.EncodeTs(number)
+	)
+	if err := db.Put(kv.HeaderNumber, hash[:], encoded); err != nil {
+		return fmt.Errorf("failed to store hash to number mapping: %W", err)
+	}
+	// Write the encoded header
+	data, err := rlp.EncodeToBytes(header)
+	if err != nil {
+		return fmt.Errorf("failed to RLP encode header: %W", err)
+	}
+	if err := db.Put(kv.Headers, dbutils.HeaderKey(number, hash), data); err != nil {
+		return fmt.Errorf("failed to store header: %W", err)
 	}
 
 	return nil

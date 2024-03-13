@@ -310,7 +310,9 @@ func postExecuteCommitValues(
 	*/
 	headerHash := header.Hash()
 	blockNum := block.NumberU64()
-	rawdb.WriteHeader(tx, header)
+	if err := rawdb.WriteHeader_zkEvm(tx, header); err != nil {
+		return fmt.Errorf("failed to write header: %v", err)
+	}
 
 	if err := rawdb.WriteCanonicalHash(tx, headerHash, blockNum); err != nil {
 		return fmt.Errorf("failed to write header: %v", err)
@@ -336,7 +338,9 @@ func postExecuteCommitValues(
 	}
 
 	// write the new block lookup entries
-	rawdb.WriteTxLookupEntries(tx, block)
+	if err := rawdb.WriteTxLookupEntries_zkEvm(tx, block); err != nil {
+		return fmt.Errorf("failed to write tx lookup entries: %v", err)
+	}
 
 	return nil
 }
