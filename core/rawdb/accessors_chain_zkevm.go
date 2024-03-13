@@ -5,11 +5,14 @@ import (
 	"fmt"
 
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/common/dbg"
 	"github.com/ledgerwatch/erigon-lib/common/hexutility"
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon/common/dbutils"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/rlp"
+	"github.com/ledgerwatch/erigon/zk/hermez_db"
+	"github.com/ledgerwatch/log/v3"
 )
 
 func DeleteCumulativeGasUsed(tx kv.RwTx, blockFrom uint64) error {
@@ -126,4 +129,35 @@ func WriteHeader_zkEvm(db kv.Putter, header *types.Header) error {
 	}
 
 	return nil
+}
+
+// ReadReceipts retrieves all the transaction receipts belonging to a block, including
+// its corresponding metadata fields. If it is unable to populate these metadata
+// fields then nil is returned.
+//
+// The current implementation populates these metadata fields by reading the receipts'
+// corresponding block body, so if the block body is not found it will return nil even
+// if the receipt itself is stored.
+func ReadReceipts_zkEvm(db kv.Tx, block *types.Block, senders []libcommon.Address) types.Receipts {
+	if block == nil {
+		return nil
+	}
+	// We're deriving many fields from the block body, retrieve beside the receipt
+	receipts := ReadRawReceipts(db, block.NumberU64())
+	if receipts == nil {
+		return nil
+	}
+	if len(senders) > 0 {
+		block.SendersToTxs(senders)
+	}
+
+	//[hack] there was a cumulativeGasUsed bug priod to forkid8, so we need to check for it
+	hermezDb := hermez_db.NewHermezDbReader(db)
+	forkid8BlockNum, _ := hermezDb.GetForkIdBlock(8)
+
+	if err := receipts.DeriveFields_zkEvm(forkid8BlockNum, block.Hash(), block.NumberU64(), block.Transactions(), senders); err != nil {
+		log.Error("Failed to derive block receipts fields", "hash", block.Hash(), "number", block.NumberU64(), "err", err, "stack", dbg.Stack())
+		return nil
+	}
+	return receipts
 }

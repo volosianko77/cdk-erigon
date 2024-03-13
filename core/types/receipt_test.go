@@ -201,8 +201,8 @@ func TestDeriveFields(t *testing.T) {
 	hash := libcommon.BytesToHash([]byte{0x03, 0x14})
 
 	clearComputedFieldsOnReceipts(t, receipts)
-	if err := receipts.DeriveFields(hash, number.Uint64(), txs, []libcommon.Address{libcommon.BytesToAddress([]byte{0x0}), libcommon.BytesToAddress([]byte{0x0}), libcommon.BytesToAddress([]byte{0x0})}); err != nil {
-		t.Fatalf("DeriveFields(...) = %v, want <nil>", err)
+	if err := receipts.DeriveFields_zkEvm(hash, number.Uint64(), txs, []libcommon.Address{libcommon.BytesToAddress([]byte{0x0}), libcommon.BytesToAddress([]byte{0x0}), libcommon.BytesToAddress([]byte{0x0})}); err != nil {
+		t.Fatalf("DeriveFields_zkEvm(...) = %v, want <nil>", err)
 	}
 	// Iterate over all the computed fields and check that they're correct
 	signer := MakeSigner(params.TestChainConfig, number.Uint64())
